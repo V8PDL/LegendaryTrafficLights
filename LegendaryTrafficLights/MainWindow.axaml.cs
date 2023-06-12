@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+п»їusing Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Media;
 using System;
@@ -21,20 +21,20 @@ using System.Threading.Tasks;
 namespace LegendaryTrafficLights
 {
     /*
-     *  Модель:                             
-     *                                      
-     *         00                 01        
-     *     __________         __________    
-     *     |        |_________|        |    
-     *  04 |    I   |___08____|   II   | 05 
-     *     |________|         |________|    
-     *       |    |             |    |      
-     *       | 11 |             | 09 |          ( -1  для индексов, т. к. с нуля)
-     *     __|____|__         __|____|__    
-     *     |        |_________|        |    
-     *  03 |   III  |____10___|   IV   | 02 
-     *     |________|         |________|    
-     *         07                 06        
+     *  РњРѕРґРµР»СЊ:                            
+     *                                     
+     *         00                 01       
+     *     __________         __________   
+     *     |        |_________|        |   
+     *  04 |    I   |___08____|   II   | 05
+     *     |________|         |________|   
+     *       |    |             |    |     
+     *       | 11 |             | 09 |     
+     *     __|____|__         __|____|__   
+     *     |        |_________|        |   
+     *  03 |   III  |____10___|   IV   | 02
+     *     |________|         |________|   
+     *         07                 06       
      */
 
     public partial class MainWindow : Window
@@ -43,42 +43,63 @@ namespace LegendaryTrafficLights
         #region Consts
 
         /// <summary>
-        /// Число входящих дорог.
+        /// Р§РёСЃР»Рѕ РІС…РѕРґСЏС‰РёС… РґРѕСЂРѕРі.
         /// </summary>
         public const int ExternalRoadsCount = 8;
 
         /// <summary>
-        /// Внутренние дороги (между перекрестками.
+        /// Р’РЅСѓС‚СЂРµРЅРЅРёРµ РґРѕСЂРѕРіРё (РјРµР¶РґСѓ РїРµСЂРµРєСЂРµСЃС‚РєР°РјРё.
         /// </summary>
         public const int InternalRoadsCount = 4;
         /// <summary>
-        /// Дорог всего.
+        /// Р”РѕСЂРѕРі РІСЃРµРіРѕ.
         /// </summary>
         public const int TotalRoadsCount = ExternalRoadsCount + InternalRoadsCount;
 
         /// <summary>
-        /// Число перекресткв.
+        /// Р§РёСЃР»Рѕ РїРµСЂРµРєСЂРµСЃС‚РєРІ.
         /// </summary>
         public const int CrossroadsCount = 4;
 
         /// <summary>
-        /// Максимальное число итераций, которое нужно, чтобы проехать через участок дороги.<br/>
-        /// Предполагается, что <see cref="CrossroadsCount"/> - квадрат целого числа.
+        /// РњР°РєСЃРёРјР°Р»СЊРЅРѕРµ С‡РёСЃР»Рѕ РёС‚РµСЂР°С†РёР№, РєРѕС‚РѕСЂРѕРµ РЅСѓР¶РЅРѕ, С‡С‚РѕР±С‹ РїСЂРѕРµС…Р°С‚СЊ С‡РµСЂРµР· СѓС‡Р°СЃС‚РѕРє РґРѕСЂРѕРіРё.<br/>
+        /// РџСЂРµРґРїРѕР»Р°РіР°РµС‚СЃСЏ, С‡С‚Рѕ <see cref="CrossroadsCount"/> - РєРІР°РґСЂР°С‚ С†РµР»РѕРіРѕ С‡РёСЃР»Р°.
         /// </summary>
         //private readonly int MaxRoadTime = ((int)Math.Sqrt(CrossroadsCount) - 1) * 2;
         public const int MaxRoadTime = 2;
 
+        /// <summary>
+        /// РЎСЃС‹Р»РєР° РЅР° РІРµР±-СЃРµСЂРІРёСЃ, РїСЂРµРґРѕСЃС‚Р°РІР»СЏСЋС‰РёР№ РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЃС‚Р°С‚РёСЃС‚РёРєРµ РїСЂРѕРµР·Р¶Р°СЋС‰РёС… РјР°С€РёРЅ.
+        /// </summary>
         //private const string uri = "http://localhost:8008";
 
-        private const string MinHeader = "Мин.";
-        private const string MaxHeader = "Макс.";
-        private const string ValueHeader = "Значение";
-
-        private const string NumberHeader = "Номер";
-        private const string InterestHeader = "Интересность";
+        /// <summary>
+        /// Р—Р°РіРѕР»РѕРІРѕРє СЃС‚РѕР»Р±С†Р° РјРёРЅРёРјР°Р»СЊРЅС‹С… Р·РЅР°С‡РµРЅРёР№.
+        /// </summary>
+        private const string MinHeader = "РњРёРЅ.";
 
         /// <summary>
-        /// Возможные позиции (?) светофоров по отношению к пешеходам.
+        /// Р—Р°РіРѕР»РѕРІРѕРє СЃС‚РѕР»Р±С†Р° РјР°РєСЃРёРјР°Р»СЊРЅС‹С… Р·РЅР°С‡РµРЅРёР№.
+        /// </summary>
+        private const string MaxHeader = "РњР°РєСЃ.";
+
+        /// <summary>
+        /// Р—Р°РіР»РѕРІРѕРє СЃС‚РѕР»Р±С†Р° Р·РЅР°С‡РµРЅРёР№.
+        /// </summary>
+        private const string ValueHeader = "Р—РЅР°С‡РµРЅРёРµ";
+
+        /// <summary>
+        /// Р—Р°РіРѕР»РѕРІРѕРє СЃС‚РѕР»Р±С†Р° РЅРѕРјРµСЂРѕРІ РґРѕСЂРѕРі.
+        /// </summary>
+        private const string NumberHeader = "РќРѕРјРµСЂ";
+
+        /// <summary>
+        /// Р—Р°РіРѕР»РѕРІРѕРє СЃС‚РѕР»Р±С†Р° РёРЅС‚РµСЂРµСЃРЅРѕСЃС‚Рё РґРѕСЂРѕРі.
+        /// </summary>
+        private const string InterestHeader = "РРЅС‚РµСЂРµСЃРЅРѕСЃС‚СЊ";
+
+        /// <summary>
+        /// Р’РѕР·РјРѕР¶РЅС‹Рµ РїРѕР·РёС†РёРё (?) СЃРІРµС‚РѕС„РѕСЂРѕРІ РїРѕ РѕС‚РЅРѕС€РµРЅРёСЋ Рє РїРµС€РµС…РѕРґР°Рј.
         /// </summary>
         private readonly PedestriansPosition[] PedestriansPositions = new PedestriansPosition[]
         {
@@ -141,50 +162,50 @@ namespace LegendaryTrafficLights
         #region Math fields
 
         /// <summary>
-        /// Границы для рандомной генерации входящих машин. Ассоциативный массив. <see langword="object"/>[] - массив из двух элементов, MIN и MAX
+        /// Р“СЂР°РЅРёС†С‹ РґР»СЏ СЂР°РЅРґРѕРјРЅРѕР№ РіРµРЅРµСЂР°С†РёРё РІС…РѕРґСЏС‰РёС… РјР°С€РёРЅ. РђСЃСЃРѕС†РёР°С‚РёРІРЅС‹Р№ РјР°СЃСЃРёРІ. <see langword="object"/>[] - РјР°СЃСЃРёРІ РёР· РґРІСѓС… СЌР»РµРјРµРЅС‚РѕРІ, MIN Рё MAX
         /// </summary>
         private readonly ObservableCollection<Dictionary<string, object>> trafficBorders = new();
 
         /// <summary>
-        /// Входящие машины. Ассрциативный массив. <see langword="object"/>[] - массив из одного элемента - значения. 
+        /// Р’С…РѕРґСЏС‰РёРµ РјР°С€РёРЅС‹. РђСЃСЃСЂС†РёР°С‚РёРІРЅС‹Р№ РјР°СЃСЃРёРІ. <see langword="object"/>[] - РјР°СЃСЃРёРІ РёР· РѕРґРЅРѕРіРѕ СЌР»РµРјРµРЅС‚Р° - Р·РЅР°С‡РµРЅРёСЏ. 
         /// </summary>
         private readonly ObservableCollection<Dictionary<string, object>> currentIncomingTraffic = new();
 
         /// <summary>
-        /// Выехавшие на текущей итерации машины.
+        /// Р’С‹РµС…Р°РІС€РёРµ РЅР° С‚РµРєСѓС‰РµР№ РёС‚РµСЂР°С†РёРё РјР°С€РёРЅС‹.
         /// </summary>
         private readonly int[] currentTrafficOut = new int[ExternalRoadsCount];
 
         /// <summary>
-        /// Вероятности для выездов с участка дороги
+        /// Р’РµСЂРѕСЏС‚РЅРѕСЃС‚Рё РґР»СЏ РІС‹РµР·РґРѕРІ СЃ СѓС‡Р°СЃС‚РєР° РґРѕСЂРѕРіРё
         /// </summary>
         private readonly double[][] baseTrafficProbabilities = new double[ExternalRoadsCount][];
 
         /// <summary>
-        /// Вероятности для въездов на внутренние дороги.<br/>
-        /// <see langword="["/>Номер перекрестка по очереди въезда<see langword="]"/>
-        /// <see langword="["/>Индекс въезда минус восемь (сдвиг, так как внешние не нужно учитывать)<see langword="]"/>
-        /// <see langword="["/>Индекс выезда<see langword="]"/>
+        /// Р’РµСЂРѕСЏС‚РЅРѕСЃС‚Рё РґР»СЏ РІСЉРµР·РґРѕРІ РЅР° РІРЅСѓС‚СЂРµРЅРЅРёРµ РґРѕСЂРѕРіРё.<br/>
+        /// <see langword="["/>РќРѕРјРµСЂ РїРµСЂРµРєСЂРµСЃС‚РєР° РїРѕ РѕС‡РµСЂРµРґРё РІСЉРµР·РґР°<see langword="]"/>
+        /// <see langword="["/>РРЅРґРµРєСЃ РІСЉРµР·РґР° РјРёРЅСѓСЃ РІРѕСЃРµРјСЊ (СЃРґРІРёРі, С‚Р°Рє РєР°Рє РІРЅРµС€РЅРёРµ РЅРµ РЅСѓР¶РЅРѕ СѓС‡РёС‚С‹РІР°С‚СЊ)<see langword="]"/>
+        /// <see langword="["/>РРЅРґРµРєСЃ РІС‹РµР·РґР°<see langword="]"/>
         /// </summary>
         private readonly double[][][] extendedTrafficProbabilities = new double[MaxRoadTime][][];
 
         /// <summary>
-        /// Предыдущие ситуации.
+        /// РџСЂРµРґС‹РґСѓС‰РёРµ СЃРёС‚СѓР°С†РёРё.
         /// </summary>
         private readonly Queue<(double a2bCurr, double b2aCurr, double a2bPrev, double b2aPrev)[]> PreviousSituaions = new();
 
         ///// <summary>
-        ///// Коэфициенты загрузки светофоров для дорог.
+        ///// РљРѕСЌС„РёС†РёРµРЅС‚С‹ Р·Р°РіСЂСѓР·РєРё СЃРІРµС‚РѕС„РѕСЂРѕРІ РґР»СЏ РґРѕСЂРѕРі.
         ///// </summary>
         //private Dictionary<(int, bool), RoadLine>? LoadingCoefficients;
 
         ///// <summary>
-        ///// Мафия.
+        ///// РњР°С„РёСЏ.
         ///// </summary>
         //private double[][]? Mafia;
 
         /// <summary>
-        /// Как же хочется светофорочку…						
+        /// РљР°Рє Р¶Рµ С…РѕС‡РµС‚СЃСЏ СЃРІРµС‚РѕС„РѕСЂРѕС‡РєСѓвЂ¦						
         /// </summary>
         private PedestriansPosition[] CrossroadPedestrianPositions = new PedestriansPosition[CrossroadsCount];
 
@@ -192,14 +213,29 @@ namespace LegendaryTrafficLights
 
         #region Fields
 
+        /// <summary>
+        /// РџРµСЂРµРєСЂРµСЃС‚РєРё СЃРёСЃС‚РµРјС‹.
+        /// </summary>
         private readonly Crossroad[] Crossroads = new Crossroad[CrossroadsCount];
 
+        /// <summary>
+        /// Р”РѕСЂРѕРіРё СЃРёСЃС‚РµРјС‹.
+        /// </summary>
         private readonly Road[] Roads = new Road[TotalRoadsCount];
+
+        /// <summary>
+        /// РџСЂРёР·РЅР°Рє С‚РѕРіРѕ, С‡С‚Рѕ СЃРёРјСѓР»СЏС†РёСЏ Р°РєС‚РёРІРЅР°.
+        /// </summary>
         private bool isRunning = false;
+
+        /// <summary>
+        /// РџСЂРёР·РЅР°Рє С‚РѕРіРѕ, С‡С‚Рѕ СЃРёРјСѓР»СЏС†РёСЏ Р±С‹Р»Р° РЅР°С‡Р°С‚Р° (С‡С‚Рѕ РѕРЅР° РЅРµ РІ РёСЃС…РѕРґРЅРѕРј СЃРѕСЃС‚РѕСЏРЅРёРё).
+        /// </summary>
         private bool isStarted = false;
 
-        private readonly double maxTraffic = 50;
-
+        /// <summary>
+        /// РСЃС‚РѕС‡РЅРёРє РґР°РЅРЅС‹С… РІ С‚Р°Р±Р»РёС†Рµ.
+        /// </summary>
         public ObservableCollection<Dictionary<string, object>> Source = new();
 
         #endregion
@@ -230,6 +266,9 @@ namespace LegendaryTrafficLights
 
         #region Math
 
+        /// <summary>
+        /// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРѕР»РµР№ СЃС‚Р°РЅРґР°СЂС‚РЅС‹РјРё Р·РЅР°С‡РµРЅРёСЏРјРё.
+        /// </summary>
         private void InitializeFields()
         {
             for (var i = 0; i < CrossroadsCount; i++)
@@ -255,13 +294,13 @@ namespace LegendaryTrafficLights
                     this.extendedTrafficProbabilities[t][i] = new double[TotalRoadsCount];
             }
 
-            // Работает только для четырех светофоров, чуть лучше, чем хардкод
+            // Р Р°Р±РѕС‚Р°РµС‚ С‚РѕР»СЊРєРѕ РґР»СЏ С‡РµС‚С‹СЂРµС… СЃРІРµС‚РѕС„РѕСЂРѕРІ, С‡СѓС‚СЊ Р»СѓС‡С€Рµ, С‡РµРј С…Р°СЂРґРєРѕРґ
             for (int i = ExternalRoadsCount; i < TotalRoadsCount; i++)
                 this.Roads[i] = new(i, this.Crossroads[(i - ExternalRoadsCount) % CrossroadsCount], this.Crossroads[(i - ExternalRoadsCount + 1) % CrossroadsCount], i % 2 == 0);
         }
 
         /// <summary>
-        /// Зануления и базовая инициализация всех значений.
+        /// Р—Р°РЅСѓР»РµРЅРёСЏ Рё Р±Р°Р·РѕРІР°СЏ РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РІСЃРµС… Р·РЅР°С‡РµРЅРёР№.
         /// </summary>
         private void InitializeProbabilities()
         {
@@ -279,8 +318,8 @@ namespace LegendaryTrafficLights
                         (_, cur, next) => this.baseTrafficProbabilities[i].Where((_, index) => cur!.ExtIDs.Contains(index)).Sum()
                                         + 0.5 * this.baseTrafficProbabilities[i].Where((_, index) => next!.ExtIDs.Contains(index)).Sum());
 
-            /// TODO: обобщить правила для разных <see cref="extendedTrafficProbabilities"/>[t]
-            /// Тогда достаточно будет обернуть в цикл и переработать <see cref="AssignProbability"/>
+            /// TODO: РѕР±РѕР±С‰РёС‚СЊ РїСЂР°РІРёР»Р° РґР»СЏ СЂР°Р·РЅС‹С… <see cref="extendedTrafficProbabilities"/>[t]
+            /// РўРѕРіРґР° РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ Р±СѓРґРµС‚ РѕР±РµСЂРЅСѓС‚СЊ РІ С†РёРєР» Рё РїРµСЂРµСЂР°Р±РѕС‚Р°С‚СЊ <see cref="AssignProbability"/>
             for (var i = 0; i < InternalRoadsCount; i++)
             {
                 var inRoadIndex = i + ExternalRoadsCount;
@@ -300,8 +339,8 @@ namespace LegendaryTrafficLights
                     });
             }
 
-            /// TODO: обобщить правила для разных <see cref="extendedTrafficProbabilities"/>[t]
-            /// Тогда достаточно будет обернуть в цикл и переработать <see cref="AssignProbability"/>
+            /// TODO: РѕР±РѕР±С‰РёС‚СЊ РїСЂР°РІРёР»Р° РґР»СЏ СЂР°Р·РЅС‹С… <see cref="extendedTrafficProbabilities"/>[t]
+            /// РўРѕРіРґР° РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ Р±СѓРґРµС‚ РѕР±РµСЂРЅСѓС‚СЊ РІ С†РёРєР» Рё РїРµСЂРµСЂР°Р±РѕС‚Р°С‚СЊ <see cref="AssignProbability"/>
             for (var i = 0; i < InternalRoadsCount; i++)
             {
                 var inRoadIndex = i + ExternalRoadsCount;
@@ -322,6 +361,9 @@ namespace LegendaryTrafficLights
             }
         }
 
+        /// <summary>
+        /// Р—Р°РїРѕР»РЅРµРЅРёРµ СЃРїРёСЃРєР° РІС…РѕРґСЏС‰РёС… РјР°С€РёРЅ.
+        /// </summary>
         private void FillIncomingCars()
         {
             if (this.UseCertainRadiobutton.IsChecked == true)
@@ -338,6 +380,9 @@ namespace LegendaryTrafficLights
                 this.currentIncomingTraffic[i][ValueHeader] = rand?.Next(this.trafficBorders[i][MinHeader].ToInt(), this.trafficBorders[i][MaxHeader].ToInt()) ?? 0;
         }
 
+        /// <summary>
+        /// РџРѕР»СѓС‡РµРЅРёРµ РёРЅС„РѕСЂРјР°С†РёРё Рѕ РІС…РѕРґСЏС‰РёС… РјР°С€РёРЅР°С… РёР· Р·Р°РїСЂРѕСЃР° Рє СЃРµСЂРІРµСЂСѓ СЃР»РµР¶РµРЅРёСЏ.
+        /// </summary>
         private async void GetDataFromServer()
         {
             using var client = new HttpClient();
@@ -386,19 +431,19 @@ namespace LegendaryTrafficLights
         }
 
         /// <summary>
-        /// Присвоить значение вероятности выбора пути.
+        /// РџСЂРёСЃРІРѕРёС‚СЊ Р·РЅР°С‡РµРЅРёРµ РІРµСЂРѕСЏС‚РЅРѕСЃС‚Рё РІС‹Р±РѕСЂР° РїСѓС‚Рё.
         /// </summary>
-        /// <param name="array">Матрица вероятностей.</param>
-        /// <param name="inRoadIndex">Индекс входной дороги.</param>
-        /// <param name="outRoadIndex">Индекс выходной дороги.</param>
-        /// <param name="i">Индекс строки матрицы.</param>
-        /// <param name="j">Индекс столбца матрицы.</param>
-        /// <param name="assignFunc">Функция присвоения. Аргументы:<br/>
-        /// <see cref="Crossroad"/> Перед InRoad (удаленный на <see langword="depth"/>;<br/>
-        /// <see cref="Crossroad"/> После OutRoad;<br/>
-        /// <see cref="Crossroad"/> Внутренний перекресток после OutRoad
+        /// <param name="array">РњР°С‚СЂРёС†Р° РІРµСЂРѕСЏС‚РЅРѕСЃС‚РµР№.</param>
+        /// <param name="inRoadIndex">РРЅРґРµРєСЃ РІС…РѕРґРЅРѕР№ РґРѕСЂРѕРіРё.</param>
+        /// <param name="outRoadIndex">РРЅРґРµРєСЃ РІС‹С…РѕРґРЅРѕР№ РґРѕСЂРѕРіРё.</param>
+        /// <param name="i">РРЅРґРµРєСЃ СЃС‚СЂРѕРєРё РјР°С‚СЂРёС†С‹.</param>
+        /// <param name="j">РРЅРґРµРєСЃ СЃС‚РѕР»Р±С†Р° РјР°С‚СЂРёС†С‹.</param>
+        /// <param name="assignFunc">Р¤СѓРЅРєС†РёСЏ РїСЂРёСЃРІРѕРµРЅРёСЏ. РђСЂРіСѓРјРµРЅС‚С‹:<br/>
+        /// <see cref="Crossroad"/> РџРµСЂРµРґ InRoad (СѓРґР°Р»РµРЅРЅС‹Р№ РЅР° <see langword="depth"/>;<br/>
+        /// <see cref="Crossroad"/> РџРѕСЃР»Рµ OutRoad;<br/>
+        /// <see cref="Crossroad"/> Р’РЅСѓС‚СЂРµРЅРЅРёР№ РїРµСЂРµРєСЂРµСЃС‚РѕРє РїРѕСЃР»Рµ OutRoad
         /// </param>
-        /// <param name="depth">Удаленность первого учитываемого перекрестка от входной дороги.</param>
+        /// <param name="depth">РЈРґР°Р»РµРЅРЅРѕСЃС‚СЊ РїРµСЂРІРѕРіРѕ СѓС‡РёС‚С‹РІР°РµРјРѕРіРѕ РїРµСЂРµРєСЂРµСЃС‚РєР° РѕС‚ РІС…РѕРґРЅРѕР№ РґРѕСЂРѕРіРё.</param>
         private void AssignProbability(
             double[][] array,
             int inRoadIndex,
@@ -433,7 +478,7 @@ namespace LegendaryTrafficLights
         }
 
         /// <summary>
-        /// Итерация.
+        /// РС‚РµСЂР°С†РёСЏ.
         /// </summary>
         private void Iterate()
         {
@@ -628,7 +673,7 @@ namespace LegendaryTrafficLights
         #region UI
 
         /// <summary>
-        /// Начальное рисование перекрестков
+        /// РќР°С‡Р°Р»СЊРЅРѕРµ СЂРёСЃРѕРІР°РЅРёРµ РїРµСЂРµРєСЂРµСЃС‚РєРѕРІ
         /// </summary>
         private void PaintIt()
         {
@@ -690,10 +735,10 @@ namespace LegendaryTrafficLights
         }
 
         /// <summary>
-        /// Реинициализация UI таблицы.
+        /// Р РµРёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ UI С‚Р°Р±Р»РёС†С‹.
         /// </summary>
-        /// <param name="source">Таблица в коде.</param>
-        /// <param name="headerNames">Названия столбцов.</param>
+        /// <param name="source">РўР°Р±Р»РёС†Р° РІ РєРѕРґРµ.</param>
+        /// <param name="headerNames">РќР°Р·РІР°РЅРёСЏ СЃС‚РѕР»Р±С†РѕРІ.</param>
         private void RedeclareHeaders(ObservableCollection<Dictionary<string, object>> source)
         {
              this.IncomingCarsDataGrid.Columns.Clear();
@@ -716,7 +761,7 @@ namespace LegendaryTrafficLights
         }
 
         /// <summary>
-        /// Запустить итерации.
+        /// Р—Р°РїСѓСЃС‚РёС‚СЊ РёС‚РµСЂР°С†РёРё.
         /// </summary>
         private void Iterations()
         {
@@ -730,9 +775,9 @@ namespace LegendaryTrafficLights
         }
 
         /// <summary>
-        /// Изменить состояние симуляции.
+        /// РР·РјРµРЅРёС‚СЊ СЃРѕСЃС‚РѕСЏРЅРёРµ СЃРёРјСѓР»СЏС†РёРё.
         /// </summary>
-        /// <param name="isRunning">Какое состояние установить.</param>
+        /// <param name="isRunning">РљР°РєРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ СѓСЃС‚Р°РЅРѕРІРёС‚СЊ.</param>
         private void ChangeStateIsRunning(bool? isRunning = null)
         {
             this.isRunning = isRunning ?? !this.isRunning;
@@ -745,7 +790,7 @@ namespace LegendaryTrafficLights
         }
 
         /// <summary>
-        /// Переопределение ветов дорог в зависимости от загруженности.
+        /// РџРµСЂРµРѕРїСЂРµРґРµР»РµРЅРёРµ РІРµС‚РѕРІ РґРѕСЂРѕРі РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ Р·Р°РіСЂСѓР¶РµРЅРЅРѕСЃС‚Рё.
         /// </summary>
         private void RecoloringRoads()
         {
@@ -801,9 +846,9 @@ namespace LegendaryTrafficLights
         }
 
         /// <summary>
-        /// Мессаджбокс.
+        /// РњРµСЃСЃР°РґР¶Р±РѕРєСЃ.
         /// </summary>
-        /// <param name="message">Сообщение.</param>
+        /// <param name="message">РЎРѕРѕР±С‰РµРЅРёРµ.</param>
         private void MessageBoxShow(string message)
             => MessageBoxManager.GetMessageBoxStandardWindow(
                 new MessageBoxStandardParams
@@ -823,7 +868,7 @@ namespace LegendaryTrafficLights
         private void SpeedSlider_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
         {
             if (e.Property.Name == nameof(this.SpeedSlider.Value) && this.SpeedTextBlock is not null)
-                this.SpeedTextBlock.Text = $"Скорость: {e.NewValue:0.000} секунд на ход";
+                this.SpeedTextBlock.Text = $"РЎРєРѕСЂРѕСЃС‚СЊ: {e.NewValue:0.000} СЃРµРєСѓРЅРґ РЅР° С…РѕРґ";
         }
 
         private void Radiobutton_Checked(object sender, RoutedEventArgs e)
@@ -902,8 +947,18 @@ namespace LegendaryTrafficLights
 
         #region Static
 
+        /// <summary>
+        /// РЁРёСЂРѕРєРёР№ РёРЅС‚РµСЂРІР°Р» (РїСЂРѕР±РµР»СЊРЅС‹Р№).
+        /// </summary>
+        /// <param name="interval">РЁРёСЂРёРЅР° РІ СЃРёРјРІРѕР»Р°С….</param>
+        /// <returns></returns>
         public static string WideInterval(int interval) => new(Enumerable.Repeat(' ', interval).ToArray());
 
+        /// <summary>
+        /// РЁРёСЂРѕРєРёР№ РІ РІС‹СЃРѕС‚Сѓ РёРЅС‚РµСЂРІР°Р».
+        /// </summary>
+        /// <param name="interval">РЁРёСЂРёРЅР° РІ СЃРёРјРІРѕР»Р°С….</param>
+        /// <returns></returns>
         public static string VerticalWide(int interval) => string.Join(string.Empty, Enumerable.Repeat(Environment.NewLine, interval));
 
         #endregion
@@ -911,6 +966,9 @@ namespace LegendaryTrafficLights
 
     #region Classes
 
+    /// <summary>
+    /// РљР»Р°СЃСЃ РґР»СЏ РґРµСЃРµСЂРёР°Р»РёР·Р°С†РёРё РґР°РЅРЅС‹С… СЃ СЃРµСЂРІРµСЂР°.
+    /// </summary>
     public class StatisticReport
     {
         public string? start_time { get; set; }
@@ -932,8 +990,17 @@ namespace LegendaryTrafficLights
         public StatisticReport() { }
     }
 
+    /// <summary>
+    /// РљР»Р°СЃСЃ СЂР°СЃС€РёСЂРµРЅРёР№.
+    /// </summary>
     public static class ExtensionsCLass
     {
+        /// <summary>
+        /// РџСЂРёРІРµСЃС‚Рё РѕР±СЉРµРєС‚ Рє С†РµР»РѕС‡РёСЃР»РµРЅРЅРѕРјСѓ С‚РёРїСѓ.
+        /// </summary>
+        /// <param name="obj">РћР±СЉРµРєС‚ РґР»СЏ РїСЂРёРІРµРґРµРЅРёСЏ.</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException">РќРµРІРѕР·РјРѕР¶РЅРѕ РїСЂРёРІРµСЃС‚Рё РѕР±СЉРµРєС‚ Рє С†РµР»РѕС‡РёСЃР»РµРЅРЅРѕРјСѓ С‚РёРїСѓ.</exception>
         public static int ToInt(this object obj) => obj is int i ? i : int.TryParse(obj.ToString(), out var s) ? s : throw new ArgumentOutOfRangeException(nameof(obj));
     }
 

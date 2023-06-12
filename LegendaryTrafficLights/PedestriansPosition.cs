@@ -2,8 +2,16 @@
 
 namespace LegendaryTrafficLights
 {
+    /// <summary>
+    /// Класс ситуации с пешеходными светофорами.
+    /// </summary>
     public class PedestriansPosition
     {
+        /// <summary>
+        /// Получить коэффициент по типу ситуации.
+        /// </summary>
+        /// <param name="type">Тип.</param>
+        /// <returns>Коэффициент.</returns>
         public static double GetCoeff(int type)
         => type switch
             {
@@ -14,6 +22,9 @@ namespace LegendaryTrafficLights
                 _ => 0
             };
 
+        /// <summary>
+        /// Идентификатор (нужен только для (не)удобства).
+        /// </summary>
         public readonly double ID;
 
         private readonly double Top2Left;
@@ -37,6 +48,12 @@ namespace LegendaryTrafficLights
         public RoadLine Left => new(this.Left2Top, this.Left2Bottom, this.Left2Right);
         public RoadLine Right => new(this.Right2Bottom, this.Right2Top, this.Right2Left);
 
+        /// <summary>
+        /// Получить коэффициенты зажженных светофоров по положению их относительно перекрестка.
+        /// </summary>
+        /// <param name="direction">Положение.</param>
+        /// <returns><see cref="RoadLine"/> с коэффициентами направления.</returns>
+        /// <exception cref="NotImplementedException"></exception>
         public RoadLine CoefByDirection(RoadPosition direction)
             => direction switch
             {
