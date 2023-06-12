@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:zoom="using:Avalonia.Controls.PanAndZoom"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+        x:Class="LegendaryTrafficLights.MainWindow"
+        Title="MainWindow">
+  <Window.Styles>
+    <Style Selector="DataGrid">
+      <Setter Property="BorderThickness" Value="2"/>
+      <Setter Property="BorderBrush" Value="Black"/>
+      <Setter Property="GridLinesVisibility" Value="All"/>
+      <Setter Property="HorizontalGridLinesBrush" Value="Black"/>
+      <Setter Property="VerticalGridLinesBrush" Value="DarkBlue"/>
+      <Setter Property="SelectedItem"></Setter>
+    </Style>
+    <Style Selector="Button :pointerover /template/ ContentPresenter">
+      <Setter Property="BorderBrush" Value="Black"/>
+      <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+  </Window.Styles>
+  <Grid>
+    <RadioButton x:Name="UseRandomRadiobutton" Checked="Radiobutton_Checked" Content="Использовать случайные значения" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+    <RadioButton x:Name="UseCertainRadiobutton" Checked="Radiobutton_Checked" Content="Использовать конкретные значения" HorizontalAlignment="Left" Margin="10,40,0,0" VerticalAlignment="Top"/>
+    <RadioButton x:Name="DisableIncomeRadiobutton" Checked="Radiobutton_Checked" Content="Отключить въезд" HorizontalAlignment="Left" Margin="10,70,0,0" VerticalAlignment="Top"/>
+    <RadioButton x:Name="FromExternalServeRadiobuttonr" Checked="Radiobutton_Checked" Content="Получать данные с сервера" HorizontalAlignment="Left" Margin="10,100,0,0" VerticalAlignment="Top"/>
+    <DataGrid x:Name="IncomingCarsDataGrid" Margin="20,200,0,0"  VerticalAlignment="Top" HorizontalAlignment="Left"
+              AutoGenerateColumns="False" CanUserResizeColumns="True" CanUserReorderColumns="False" CanUserSortColumns="False" CellEditEnding="IncomingCarsDataGrid_CellEditEnding"
+              Width="350" MaxWidth="350"/>
+    <TextBlock x:Name="SpeedTextBlock" HorizontalAlignment="Left" Margin="400,10,0,0" TextWrapping="Wrap" Text="Скорость: миллисекунд на ход" VerticalAlignment="Top"/>
+    <Slider x:Name="SpeedSlider" PropertyChanged="SpeedSlider_PropertyChanged" HorizontalAlignment="Stretch" Minimum="0.5" Maximum="5" Margin="400,30,20,0" VerticalAlignment="Top"/>
+    <Button Content="Старт" Click="StartButton_Click" x:Name="StartButton" HorizontalAlignment="Left" Margin="400,80,0,0" VerticalAlignment="Top" Width="120"/>
+    <Button Content="Стоп" Click="StopButton_Click" x:Name="StopButton" HorizontalAlignment="Left" Margin="540,80,0,0" VerticalAlignment="Top" Width="120" />
+    <Button Content="Пауза" Click="PauseButton_Click" x:Name="PauseButton" HorizontalAlignment="Left" Margin="680,80,0,0" VerticalAlignment="Top" Width="120"/>
+    <Button Content="Продолжить" Click="ContinueButton_Click" x:Name="ContinueButton" HorizontalAlignment="Left" Margin="820,80,0,0" VerticalAlignment="Top" Width="120"/>
+    <Button Content="Шаг вперед" Click="DebugButton_Click" x:Name="DebugButton" HorizontalAlignment="Left" Margin="960,80,0,0" VerticalAlignment="Top" Width="120"/>
+    <Border Margin="400,120,20,20" BorderThickness="2" BorderBrush="Black" ClipToBounds="True">
+      <zoom:ZoomBorder EnablePan="True" EnableZoom="True" ZoomSpeed="1.1" PanButton="Left">
+        <Canvas x:Name="Canvas" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"/>
+      </zoom:ZoomBorder>
+    </Border>
+  </Grid>
+</Window>
