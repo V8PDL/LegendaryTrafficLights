@@ -6,7 +6,11 @@ using System.Linq;
 
 namespace LegendaryTrafficLights
 {
+#pragma warning disable CS0660 // Type defines operator == or operator != but does not override Object.Equals(object o)
+#pragma warning disable CS0661 // Type defines operator == or operator != but does not override Object.GetHashCode()
     public class Road : Shape
+#pragma warning restore CS0661 // Type defines operator == or operator != but does not override Object.GetHashCode()
+#pragma warning restore CS0660 // Type defines operator == or operator != but does not override Object.Equals(object o)
     {
         #region Fields
 
@@ -49,13 +53,13 @@ namespace LegendaryTrafficLights
         /// Количество машин, направляющихся из А в Б. В начале они считаются вместе, после - отдельно по направлениям.<br/>
         /// TODO: сделать b2a.start == a2b.finish.back, сделав RoadLine на четыре полосы.
         /// </summary>
-        public (double start, RoadLine finish) a2b;
+        public (double start, RoadLine finish) A2B;
 
         /// <summary>
         /// Количество машин, направляющихся из Б в А. В начале они считаются вместе, после - отдельно по направлениям.<br/>
         /// TODO: сделать b2a.start == a2b.finish.back, сделав RoadLine на четыре полосы.
         /// </summary>
-        public (double start, RoadLine finish) b2a;
+        public (double start, RoadLine finish) B2A;
 
         #endregion
 
@@ -64,7 +68,7 @@ namespace LegendaryTrafficLights
         /// <summary>
         /// Количество машин на доороге.
         /// </summary>
-        public double CarsCount => this.a2b.start + this.a2b.finish.Sum + this.b2a.start + this.b2a.finish.Sum;
+        public double CarsCount => this.A2B.start + this.A2B.finish.Sum + this.B2A.start + this.B2A.finish.Sum;
 
         /// <summary>
         /// Является ли дорога горизонтальной.
@@ -114,10 +118,10 @@ namespace LegendaryTrafficLights
         /// Текст для отображения.
         /// </summary>
         public string Text => this.IsHorizontal
-            ? $"→:|{(BIsLeft ? a2b.start : b2a.start):0.00}|{MainWindow.WideInterval(30)}|{(BIsLeft ? a2b.finish.Sum : b2a.finish.Sum):0.00}|:→{Environment.NewLine}"
-                + $"←:|{(BIsRight ? a2b.finish.Sum : b2a.finish.Sum):0.00}|{MainWindow.WideInterval(30)}|{(BIsRight ? a2b.start : b2a.start):0.00}|:←"
-            : $"↓:|{(BIsTop ? a2b.start : b2a.start):0.00}|--|{(BIsBottom ? a2b.finish.Sum : b2a.finish.Sum):0.00}|:↑{MainWindow.VerticalWide(10)}"
-                + $"↓:|{(BIsTop ? a2b.finish.Sum : b2a.finish.Sum):0.00}|--|{(BIsBottom ? a2b.start : b2a.start):0.00}|:↑";
+            ? $"→:|{(BIsLeft ? A2B.start : B2A.start):0.00}|{MainWindow.WideInterval(30)}|{(BIsLeft ? A2B.finish.Sum : B2A.finish.Sum):0.00}|:→{Environment.NewLine}"
+                + $"←:|{(BIsRight ? A2B.finish.Sum : B2A.finish.Sum):0.00}|{MainWindow.WideInterval(30)}|{(BIsRight ? A2B.start : B2A.start):0.00}|:←"
+            : $"↓:|{(BIsTop ? A2B.start : B2A.start):0.00}|--|{(BIsBottom ? A2B.finish.Sum : B2A.finish.Sum):0.00}|:↑{MainWindow.VerticalWide(10)}"
+                + $"↓:|{(BIsTop ? A2B.finish.Sum : B2A.finish.Sum):0.00}|--|{(BIsBottom ? A2B.start : B2A.start):0.00}|:↑";
 
         /// <summary>
         /// Номер среди внутренних дорог.
@@ -136,14 +140,15 @@ namespace LegendaryTrafficLights
             this.ID = ID;
             this.IsA2B = IsA2B;
             this.IsB2A = IsB2A;
-            (this.A, this.B) = this.IsExternal ? (null, A ?? B) : (A, B);
+            this.A = A;
+            this.B = B;
 
             this.Stroke = Brushes.Black;
             this.StrokeThickness = 3;
             this.Height = IsHorizontal ? SmallWidth : BigWidth;
             this.Width = IsHorizontal ? BigWidth : SmallWidth;
-            this.a2b.finish = new(0, 0, 0);
-            this.b2a.finish = new(0, 0, 0);
+            this.A2B.finish = new(0, 0, 0);
+            this.B2A.finish = new(0, 0, 0);
 
             this.BPosition = true switch
             {
@@ -178,14 +183,18 @@ namespace LegendaryTrafficLights
         public override string ToString() => $"{this.ID} : FROM {this.A} ({this.IsA2B}) TO {this.B} ({this.IsB2A})";
 
         public RoadLine this[Crossroad crossroad]
-            => this.B == crossroad ? this.a2b.finish : this.A == crossroad ? this.b2a.finish : throw new ArgumentOutOfRangeException(nameof(crossroad));
+            => this.B == crossroad ? this.A2B.finish : this.A == crossroad ? this.B2A.finish : throw new ArgumentOutOfRangeException(nameof(crossroad));
 
         public Road Clone(Crossroad[] cross)
-            => new(this.ID, cross.FirstOrDefault(c => c.ID == this.A?.ID), cross.First(c => c.ID == this.B.ID), this.IsHorizontal, this.IsA2B, this.IsB2A)
+            => new(this.ID, cross.FirstOrDefault(c => c == this.A), cross.First(c => c == this.B), this.IsHorizontal, this.IsA2B, this.IsB2A)
             {
-                a2b = new(this.a2b.start, new(this.a2b.finish?.left ?? 0, this.a2b.finish?.right ?? 0, this.a2b.finish?.straight ?? 0)),
-                b2a = new(this.b2a.start, new(this.b2a.finish?.left ?? 0, this.b2a.finish?.right ?? 0, this.b2a.finish?.straight ?? 0)),
+                A2B = new(this.A2B.start, new(this.A2B.finish?.left ?? 0, this.A2B.finish?.right ?? 0, this.A2B.finish?.straight ?? 0)),
+                B2A = new(this.B2A.start, new(this.B2A.finish?.left ?? 0, this.B2A.finish?.right ?? 0, this.B2A.finish?.straight ?? 0)),
             };
+
+        public static bool operator ==(Road? r1, Road r2) => r1?.ID == r2?.ID;
+
+        public static bool operator !=(Road? r1, Road r2) => r1?.ID != r2?.ID;
 
         #endregion
 
@@ -229,7 +238,7 @@ namespace LegendaryTrafficLights
         }
 
         /// <summary>
-        /// Получить направление движение, которое нужно держать, чтобы с текущей дороги перейти на новую.
+        /// Получить направление движения, которое нужно держать, чтобы с текущей дороги перейти на новую.
         /// </summary>
         /// <param name="road">Дорога, до которой строится путь.</param>
         /// <returns>Направление движения.</returns>

@@ -8,9 +8,7 @@ using System.Linq;
 using System.Threading;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using Avalonia.LogicalTree;
 using Avalonia;
-using MessageBox.Avalonia.DTO;
 using MessageBox.Avalonia;
 using System.Net.Http;
 using System.Text.Json;
@@ -207,7 +205,7 @@ namespace LegendaryTrafficLights
         /// <summary>
         /// Как же хочется светофорочку…						
         /// </summary>
-        private PedestriansPosition[] CrossroadPedestrianPositions = new PedestriansPosition[CrossroadsCount];
+        private PedestriansPosition[][] CrossroadPedestrianPositions = new PedestriansPosition[CrossroadsCount][];
 
         #endregion
 
@@ -236,7 +234,7 @@ namespace LegendaryTrafficLights
         /// <summary>
         /// Источник данных в таблице.
         /// </summary>
-        public ObservableCollection<Dictionary<string, object>> Source = new();
+        public ObservableCollection<Dictionary<string, object>>? Source = null;
 
         #endregion
 
@@ -253,7 +251,6 @@ namespace LegendaryTrafficLights
             this.InitializeComponent();
 
             this.InitializeFields();
-            //this.FillIncomingCars();
             this.UseCertainRadiobutton.IsChecked = true;
 
             this.InitializeProbabilities();
@@ -274,13 +271,32 @@ namespace LegendaryTrafficLights
             for (var i = 0; i < CrossroadsCount; i++)
                 this.Crossroads[i] = new(i, (CrossroadPosition)i);
 
-            this.trafficBorders.Clear();
-            this.currentIncomingTraffic.Clear();
+            this.PreviousSituaions.Clear();
+
             for (var i = 0; i < ExternalRoadsCount; i++)
             {
-                this.trafficBorders.Add(new() { [NumberHeader] = i, [InterestHeader] = 5, [MinHeader] = 5, [MaxHeader] = 10 });
-                
-                this.currentIncomingTraffic.Add(new() { [NumberHeader] = i, [InterestHeader] = 5, [ValueHeader] = 5});
+                if (this.trafficBorders.Count != ExternalRoadsCount)
+                {
+                    this.trafficBorders.Add(
+                    new()
+                    {
+                        [NumberHeader] = this.Source?.ElementAtOrDefault(i)?[NumberHeader] ?? i,
+                        [InterestHeader] = this.Source?.ElementAtOrDefault(i)?[InterestHeader] ?? 5,
+                        [MinHeader] = 5,
+                        [MaxHeader] = 10
+                    });
+                }
+
+                if (this.currentIncomingTraffic.Count != ExternalRoadsCount)
+                {
+                    this.currentIncomingTraffic.Add(
+                    new()
+                    {
+                        [NumberHeader] = this.Source?.ElementAtOrDefault(i)?[NumberHeader] ?? i,
+                        [InterestHeader] = this.Source?.ElementAtOrDefault(i)?[InterestHeader] ?? 5,
+                        [ValueHeader] = 5
+                    });
+                }
 
                 this.Roads[i] = new(i, null, this.Crossroads[i % CrossroadsCount], i < 4);
                 this.baseTrafficProbabilities[i] = new double[TotalRoadsCount];
@@ -309,7 +325,7 @@ namespace LegendaryTrafficLights
             for (var i = 0; i < ExternalRoadsCount; i++)
                 for (var j = 0; j < ExternalRoadsCount; j++)
                     this.baseTrafficProbabilities[i][j] = i != j
-                        ? 1d * this.Source[j][InterestHeader].ToInt() / (totalInterest - this.Source[i][InterestHeader].ToInt())
+                        ? 1d * this.Source![j][InterestHeader].ToInt() / (totalInterest - this.Source[i][InterestHeader].ToInt())
                         : 0;
 
             for (var i = 0; i < ExternalRoadsCount; i++)
@@ -364,26 +380,32 @@ namespace LegendaryTrafficLights
         /// <summary>
         /// Заполнение списка входящих машин.
         /// </summary>
-        private void FillIncomingCars()
+        private async Task<int[]> GetIncomingCars()
         {
             if (this.UseCertainRadiobutton.IsChecked == true)
-                return;
-
-            if (this.FromExternalServeRadiobuttonr.IsChecked == true)
             {
-                this.GetDataFromServer();
-                return;
+                return this.currentIncomingTraffic.Select(d => d[ValueHeader].ToInt()).ToArray();
             }
-
-            var rand = this.DisableIncomeRadiobutton.IsChecked == true ? null : new Random();
-            for (var i = 0; i < ExternalRoadsCount; i++)
-                this.currentIncomingTraffic[i][ValueHeader] = rand?.Next(this.trafficBorders[i][MinHeader].ToInt(), this.trafficBorders[i][MaxHeader].ToInt()) ?? 0;
+            else if (this.FromExternalServeRadiobuttonr.IsChecked == true)
+            {
+                return await this.GetDataFromServer();
+            }
+            else if (this.DisableIncomeRadiobutton.IsChecked == true)
+            {
+                return Enumerable.Repeat(0, ExternalRoadsCount).ToArray();
+            }
+            else if (this.UseRandomRadiobutton.IsChecked == true)
+            {
+                var rand = new Random();
+                return this.trafficBorders.Select(d => rand.Next(d[MinHeader].ToInt(), d[MaxHeader].ToInt())).ToArray();
+            }
+            else throw new ArgumentOutOfRangeException(nameof(this.Radiobutton_Checked));
         }
 
         /// <summary>
         /// Получение информации о входящих машинах из запроса к серверу слежения.
         /// </summary>
-        private async void GetDataFromServer()
+        private async Task<int[]> GetDataFromServer()
         {
             using var client = new HttpClient();
             try
@@ -414,20 +436,22 @@ namespace LegendaryTrafficLights
 }");
 
                 if (string.IsNullOrWhiteSpace(result))
-                    return;
+                    throw new FormatException(nameof(result));
 
                 var results = JsonSerializer.Deserialize<StatisticReport>(result);
 
                 if (results?.EndTime is null)
                     throw new ArgumentNullException(nameof(StatisticReport.EndTime));
 
-                results.statistics?.Where(s => s.id < ExternalRoadsCount && s.id > -1).ToList().ForEach(s => { this.currentIncomingTraffic[s.id][ValueHeader] = s.count_cars; });
+                return Enumerable.Range(0, ExternalRoadsCount).Select(r => results.statistics?.FirstOrDefault(s => s.id == r)?.count_cars ?? 0).ToArray();
 
             }
             catch (Exception ex)
             {
                 this.MessageBoxShow(ex.Message);
             }
+
+            return Enumerable.Repeat(0, ExternalRoadsCount).ToArray();
         }
 
         /// <summary>
@@ -480,10 +504,10 @@ namespace LegendaryTrafficLights
         /// <summary>
         /// Итерация.
         /// </summary>
-        private void Iterate()
+        private async void Iterate()
         {
             // New Enemy wave has arrived		
-            this.FillIncomingCars();
+            var incomingTraffic = await this.GetIncomingCars();
 
             var lastSituation = this.PreviousSituaions.Count == 2 ? this.PreviousSituaions.Dequeue() : null;
             this.PreviousSituaions.TryPeek(out var prevSituation);
@@ -500,60 +524,77 @@ namespace LegendaryTrafficLights
 
                 if (roadCopy.IsExternal)
                 {
-                    var traffic = this.currentIncomingTraffic[road.ID][ValueHeader].ToInt();
+                    var traffic = incomingTraffic[road.ID];
 
-                    var position = this.PedestriansPositions.ElementAtOrDefault(road.B.PedestrIndex);
+                    var position = this.PedestriansPositions.ElementAtOrDefault(roadCopy.B.PedestrIndex);
                     var roadPosition = position?.CoefByDirection(roadCopy.BPosition);
 
-                    road.a2b.finish.left += traffic * this.baseTrafficProbabilities[road.ID][roadCopy.GetRoad(RoadPosition.Left).ID]
-                        - (roadCopy.a2b.finish.left * roadPosition?.left ?? 0);
-                    road.a2b.finish.straight += traffic * this.baseTrafficProbabilities[road.ID][roadCopy.GetRoad(RoadPosition.Top).ID]
-                        - (roadCopy.a2b.finish.straight * roadPosition?.straight ?? 0);
-                    road.a2b.finish.right += traffic * this.baseTrafficProbabilities[road.ID][roadCopy.GetRoad(RoadPosition.Right).ID]
-                        - (roadCopy.a2b.finish.right * roadPosition?.right ?? 0);
+                    road.A2B.finish.left += traffic * this.baseTrafficProbabilities[roadCopy.ID][roadCopy.GetRoad(RoadPosition.Left).ID]
+                        - (roadCopy.A2B.finish.left * roadPosition?.left ?? 0);
+                    road.A2B.finish.straight += traffic * this.baseTrafficProbabilities[roadCopy.ID][roadCopy.GetRoad(RoadPosition.Top).ID]
+                        - (roadCopy.A2B.finish.straight * roadPosition?.straight ?? 0);
+                    road.A2B.finish.right += traffic * this.baseTrafficProbabilities[roadCopy.ID][roadCopy.GetRoad(RoadPosition.Right).ID]
+                        - (roadCopy.A2B.finish.right * roadPosition?.right ?? 0);
 
-                    var (start, finish) = roadCopy.b2a;
-                    road.b2a.finish = new(finish.left + start / 3, finish.right + start / 3, finish.straight + start / 3);
-                    road.b2a.start = roadCopy.B.Roads
+                    var (start, finish) = roadCopy.B2A;
+                    road.B2A.finish = new(finish.left + start / 3, finish.right + start / 3, finish.straight + start / 3);
+                    road.B2A.start = roadCopy.B.Roads
                         .Where(r => r != roadCopy)
-                        .Sum(r =>
-                            position?.CoefByDirection(r.PosByCross(roadCopy.B)).GetByDirection(r.GetDirection(roadCopy))
-                                * r[roadCopy.B].GetByDirection(r.GetDirection(roadCopy)) ?? 0);
+                        .Sum(r => position?.CoefByDirection(r.PosByCross(roadCopy.B)).GetByDirection(r.GetDirection(roadCopy))
+                            * r[roadCopy.B].GetByDirection(r.GetDirection(roadCopy)) ?? 0);
 
                     continue;
                 }
 
-                foreach (var crossroad in road.Crossroads)
+                foreach (var cross in road.Crossroads)
                 {
-                    if (crossroad is null)
-                        throw new ArgumentNullException(nameof(crossroad));
+                    if (cross is null)
+                        throw new ArgumentNullException(nameof(cross));
 
-                    var leftRoad = roadCopy.GetRoad(RoadPosition.Left, road.B == crossroad);
-                    var rightRoad = roadCopy.GetRoad(RoadPosition.Right, road.B == crossroad);
-                    var straightRoad = roadCopy.GetRoad(RoadPosition.Top, road.B == crossroad);
+                    var leftRoad = roadCopy.GetRoad(RoadPosition.Left, road.B == cross);
+                    var rightRoad = roadCopy.GetRoad(RoadPosition.Right, road.B == cross);
+                    var straightRoad = roadCopy.GetRoad(RoadPosition.Top, road.B == cross);
 
-                    road[crossroad].left += lastSituation?[road.IntID].a2bCurr * this.extendedTrafficProbabilities[0][road.IntID][leftRoad.ID] ?? 0
-                            + lastSituation?[road.IntID].a2bPrev * this.extendedTrafficProbabilities[1][road.IntID][leftRoad.ID] ?? 0
+                    var lastCurr = (road.B == cross ? lastSituation?[road.IntID].a2bCurr : lastSituation?[road.IntID].b2aCurr) ?? 0;
+                    var lastPrev = (road.B == cross ? lastSituation?[road.IntID].a2bPrev : lastSituation?[road.IntID].b2aPrev) ?? 0;
+
+                    var copyLine = roadCopy[cross];
+
+                    var s1 = lastCurr * this.extendedTrafficProbabilities[0][road.IntID][leftRoad.ID];
+                    var s2 = lastPrev * this.extendedTrafficProbabilities[1][road.IntID][leftRoad.ID];
+                    var s3 = (leftRoad.IsExternal
+                                ? (copyLine.left * this.PedestriansPositions.ElementAtOrDefault(cross.PedestrIndex)
+                                    ?.CoefByDirection(road.PosByCross(cross)).GetByDirection(RoadPosition.Left) ?? 0)
+                                : ((leftRoad.A == cross ? prevSituation?[leftRoad.IntID].a2bPrev : prevSituation?[leftRoad.IntID].b2aPrev) ?? 0));
+
+                    road[cross].left = copyLine.left
+                            + lastCurr * this.extendedTrafficProbabilities[0][road.IntID][leftRoad.ID]
+                            + lastPrev * this.extendedTrafficProbabilities[1][road.IntID][leftRoad.ID]
                             - (leftRoad.IsExternal
-                                ? road.a2b.finish.left * this.PedestriansPositions.ElementAtOrDefault(crossroad.PedestrIndex)?.CoefByDirection(road.BPosition).GetByDirection(RoadPosition.Left) ?? 0
-                                : leftRoad.A == crossroad ? prevSituation?[leftRoad.IntID].a2bPrev : prevSituation?[leftRoad.IntID].b2aPrev) ?? 0;
+                                ? (copyLine.left * this.PedestriansPositions.ElementAtOrDefault(cross.PedestrIndex)
+                                    ?.CoefByDirection(road.PosByCross(cross)).GetByDirection(RoadPosition.Left) ?? 0)
+                                : ((leftRoad.A == cross ? prevSituation?[leftRoad.IntID].a2bPrev : prevSituation?[leftRoad.IntID].b2aPrev) ?? 0));
 
-                    road[crossroad].right += lastSituation?[road.IntID].a2bCurr * this.extendedTrafficProbabilities[0][road.IntID][rightRoad.ID] ?? 0
-                            + lastSituation?[road.IntID].a2bPrev * this.extendedTrafficProbabilities[1][road.IntID][rightRoad.ID] ?? 0
+                    road[cross].right = copyLine.right
+                            + lastCurr * this.extendedTrafficProbabilities[0][road.IntID][rightRoad.ID]
+                            + lastPrev * this.extendedTrafficProbabilities[1][road.IntID][rightRoad.ID]
                             - (rightRoad.IsExternal
-                                ? road.a2b.finish.left * this.PedestriansPositions.ElementAtOrDefault(crossroad.PedestrIndex)?.CoefByDirection(road.BPosition).GetByDirection(RoadPosition.Left) ?? 0
-                                : rightRoad.A == crossroad ? prevSituation?[rightRoad.IntID].a2bPrev : prevSituation?[rightRoad.IntID].b2aPrev) ?? 0;
+                                ? (copyLine.right * this.PedestriansPositions.ElementAtOrDefault(cross.PedestrIndex)
+                                    ?.CoefByDirection(road.PosByCross(cross)).GetByDirection(RoadPosition.Right) ?? 0)
+                                : ((rightRoad.A == cross ? prevSituation?[rightRoad.IntID].a2bPrev : prevSituation?[rightRoad.IntID].b2aPrev) ?? 0));
 
-                    road[crossroad].straight += lastSituation?[road.IntID].a2bCurr * this.extendedTrafficProbabilities[0][road.IntID][straightRoad.ID] ?? 0
-                            + lastSituation?[road.IntID].a2bPrev * this.extendedTrafficProbabilities[1][road.IntID][straightRoad.ID] ?? 0
+                    road[cross].straight = copyLine.straight
+                            + lastCurr * this.extendedTrafficProbabilities[0][road.IntID][straightRoad.ID]
+                            + lastPrev * this.extendedTrafficProbabilities[1][road.IntID][straightRoad.ID]
                             - (straightRoad.IsExternal
-                                ? road.a2b.finish.left * this.PedestriansPositions.ElementAtOrDefault(crossroad.PedestrIndex)?.CoefByDirection(road.BPosition).GetByDirection(RoadPosition.Left) ?? 0
-                                : straightRoad.A == crossroad ? prevSituation?[straightRoad.IntID].a2bPrev : prevSituation?[straightRoad.IntID].b2aPrev) ?? 0;
+                                ? (copyLine.straight * this.PedestriansPositions.ElementAtOrDefault(cross.PedestrIndex) 
+                                    ?.CoefByDirection(road.PosByCross(cross)).GetByDirection(RoadPosition.Top) ?? 0)
+                                : ((straightRoad.A == cross ? prevSituation?[straightRoad.IntID].a2bPrev : prevSituation?[straightRoad.IntID].b2aPrev) ?? 0));
 
-                    if (crossroad == road.B)
-                        road.b2a.start = prevSituation?[road.IntID].b2aCurr + prevSituation?[road.IntID].b2aPrev ?? 0;
+                    if (cross == road.B)
+                        road.B2A.start = prevSituation?[road.IntID].b2aCurr + prevSituation?[road.IntID].b2aPrev ?? 0;
                     else
-                        road.a2b.start = prevSituation?[road.IntID].a2bCurr + prevSituation?[road.IntID].a2bPrev ?? 0;
+                        road.A2B.start = prevSituation?[road.IntID].a2bCurr + prevSituation?[road.IntID].a2bPrev ?? 0;
                 }
             }
 
@@ -581,28 +622,46 @@ namespace LegendaryTrafficLights
 
             #region Mafia
 
-            var crossroadPedestrianPositions = new PedestriansPosition[CrossroadsCount];
+            var crossPedPositions = new PedestriansPosition[CrossroadsCount][];
             foreach (var crossroad in this.Crossroads)
             {
+                crossPedPositions[crossroad.ID] = new PedestriansPosition[2];
+
                 if (crossroad.PedestrIndex < 0)
                     continue;
 
                 var position = this.PedestriansPositions[crossroad.PedestrIndex];
                 var cpp = this.CrossroadPedestrianPositions?[crossroad.ID];
-                crossroadPedestrianPositions[crossroad.ID] = new(
+                crossPedPositions[crossroad.ID][0] = new(
                     crossroad.ID,
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Top.left ?? 0)) * (position.Top.left == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Top.straight ?? 0)) * (position.Top.straight == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Top.right ?? 0)) * (position.Top.right == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Left.left ?? 0)) * (position.Top.left == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Left.straight ?? 0)) * (position.Top.straight == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Left.right ?? 0)) * (position.Top.right == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Right.left ?? 0)) * (position.Top.left == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Right.straight ?? 0)) * (position.Top.straight == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Right.right ?? 0)) * (position.Top.right == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Bottom.left ?? 0)) * (position.Top.left == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Bottom.straight ?? 0)) * (position.Top.straight == 1 ? 0 : 1), 2)),
-                    1 + (0.01 * Math.Pow((1 + (cpp?.Bottom.right ?? 0)) * (position.Top.right == 1 ? 0 : 1), 2)),
+                    (1 + (cpp?[0]?.Top.left ?? 0)) *         (position.Top.left == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Top.straight ?? 0)) *     (position.Top.straight == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Top.right ?? 0)) *        (position.Top.right == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Left.left ?? 0)) *        (position.Left.left == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Left.straight ?? 0)) *    (position.Left.straight == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Left.right ?? 0)) *       (position.Left.right == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Right.left ?? 0)) *       (position.Right.left == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Right.straight ?? 0)) *   (position.Right.straight == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Right.right ?? 0)) *      (position.Right.right == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Bottom.left ?? 0)) *      (position.Bottom.left == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Bottom.straight ?? 0)) *  (position.Bottom.straight == 1 ? 0 : 1),
+                    (1 + (cpp?[0]?.Bottom.right ?? 0)) *     (position.Bottom.right == 1 ? 0 : 1),
+                    0);
+
+                crossPedPositions[crossroad.ID][1] = new(
+                    crossroad.ID,
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Top.left, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Top.straight, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Top.right, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Left.left, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Left.straight, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Left.right, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Right.left, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Right.straight, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Right.right, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Bottom.left, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Bottom.straight, 2)),
+                    1 + (0.01 * Math.Pow(crossPedPositions[crossroad.ID][0].Bottom.right, 2)),
                     0);
             }
 
@@ -621,7 +680,7 @@ namespace LegendaryTrafficLights
 
                                 var roadLine = r[crossroad];
                                 var pedestrLine = this.PedestriansPositions[j].CoefByDirection(position);
-                                var crossroadLine = crossroadPedestrianPositions.ElementAtOrDefault(crossroad.ID)?.CoefByDirection(position);
+                                var crossroadLine = crossPedPositions.ElementAtOrDefault(crossroad.ID)?[1]?.CoefByDirection(position);
 
                                 return roadLine.left * loadingCoefficients[(r.ID, true)].left * pedestrLine.left * (crossroadLine?.left ?? 1)
                                     + roadLine.right * loadingCoefficients[(r.ID, true)].right * pedestrLine.right * (crossroadLine?.right ?? 1)
@@ -639,30 +698,32 @@ namespace LegendaryTrafficLights
 
             (double a2bCurr, double b2aCurr, double a2bPrev, double b2aPrev)[] cars = new (double, double, double, double)[InternalRoadsCount];
 
-            foreach (Road road in this.Roads.Where(r => r.IsInternal))
+            foreach (var road in this.Roads.Where(r => r.IsInternal))
             {
-                var position = this.PedestriansPositions[road.A!.PedestrIndex];
-                var v1 = position.CoefByDirection(road.A.ExtRoads.First().BPosition).GetByDirection(road.A.ExtRoads.First().GetDirection(road));
-                var v2 = position.CoefByDirection(road.A.ExtRoads.Last().BPosition).GetByDirection(road.A.ExtRoads.Last().GetDirection(road));
+                var aPosition = this.PedestriansPositions[road.A!.PedestrIndex];
+                var bPosition = this.PedestriansPositions[road.B.PedestrIndex];
 
-                cars[road.IntID].a2bCurr = road.A.ExtRoads.Select(r => r.a2b.finish.GetByDirection(r.GetDirection(road)) * position.CoefByDirection(r.BPosition).GetByDirection(r.GetDirection(road))).Sum();
-                cars[road.IntID].b2aCurr = road.B.ExtRoads.Select(r => r.a2b.finish.GetByDirection(r.GetDirection(road)) * position.CoefByDirection(r.BPosition).GetByDirection(r.GetDirection(road))).Sum();
+                cars[road.IntID].a2bCurr = road.A.ExtRoads.Select(r =>
+                    r.A2B.finish.GetByDirection(r.GetDirection(road)) * aPosition.CoefByDirection(r.BPosition).GetByDirection(r.GetDirection(road))).Sum();
+                cars[road.IntID].b2aCurr = road.B.ExtRoads.Select(r =>
+                    r.A2B.finish.GetByDirection(r.GetDirection(road)) * bPosition.CoefByDirection(r.BPosition).GetByDirection(r.GetDirection(road))).Sum();
 
                 var a2bRoad = road.A.FirstIntNotRoad(road);
                 var b2aRoad = road.B.FirstIntNotRoad(road);
 
                 var a2bValue = a2bRoad[road.A].GetByDirection(a2bRoad.GetDirection(road));
-                var b2aValue = b2aRoad[road.B].GetByDirection(a2bRoad.GetDirection(road));
+                var b2aValue = b2aRoad[road.B].GetByDirection(b2aRoad.GetDirection(road));
 
-                cars[road.IntID].a2bPrev = a2bValue * position.CoefByDirection(a2bRoad.PosByCross(road.A)).GetByDirection(a2bRoad.GetDirection(road));
-                cars[road.IntID].b2aPrev = b2aValue * position.CoefByDirection(b2aRoad.PosByCross(road.B)).GetByDirection(b2aRoad.GetDirection(road));
-            }
+                var v1 = aPosition.CoefByDirection(a2bRoad.PosByCross(road.A)).GetByDirection(a2bRoad.GetDirection(road));
+                var v2 = bPosition.CoefByDirection(b2aRoad.PosByCross(road.B)).GetByDirection(b2aRoad.GetDirection(road));
+
+                cars[road.IntID].a2bPrev = a2bValue * aPosition.CoefByDirection(a2bRoad.PosByCross(road.A)).GetByDirection(a2bRoad.GetDirection(road));
+                cars[road.IntID].b2aPrev = b2aValue * bPosition.CoefByDirection(b2aRoad.PosByCross(road.B)).GetByDirection(b2aRoad.GetDirection(road));
+                }
 
             #endregion
 
-            //this.LoadingCoefficients = loadingCoefficients;
-            this.CrossroadPedestrianPositions = crossroadPedestrianPositions;
-            //this.Mafia = mafia;
+            this.CrossroadPedestrianPositions = crossPedPositions;
             this.PreviousSituaions.Enqueue(cars);
 
             this.RecoloringRoads();
@@ -743,7 +804,7 @@ namespace LegendaryTrafficLights
         {
              this.IncomingCarsDataGrid.Columns.Clear();
             
-            foreach (var key in source.FirstOrDefault()?.Keys.ToArray() ?? new[] { NumberHeader, InterestHeader })
+            foreach (var key in source.First().Keys.ToArray())
             {
                 this.IncomingCarsDataGrid.Columns.Add(new DataGridTextColumn()
                 {
@@ -794,10 +855,10 @@ namespace LegendaryTrafficLights
         /// </summary>
         private void RecoloringRoads()
         {
+            var maxTraffic = 100 + this.Crossroads.Max(c => c.Load) * 1.2;
+
             foreach (var element in this.Canvas.Children)
             {
-                var children = element.GetLogicalChildren();
-
                 if (element is not TextBlock tb
                     || tb.Tag is not string tag) // sic!
                     continue;
@@ -805,37 +866,27 @@ namespace LegendaryTrafficLights
                 var road = this.Roads.FirstOrDefault(r => r.ToString() == tag);
                 var crossroad = this.Crossroads.FirstOrDefault(c => c.ToString() == tag);
 
-                if (road is null && crossroad is null)
-                    continue;
-
                 if (crossroad is not null)
                 {
                     tb.Text = crossroad.Text;
+                    crossroad.Fill = new SolidColorBrush(Color.FromRgb((byte)(crossroad.Load / maxTraffic * 255), (byte)((1 - crossroad.Load / maxTraffic) * 255), 0));
                     continue;
                 }
 
-                var a2bStart = (int)(road!.a2b.start > this.maxTraffic ? 0 : 255 * (this.maxTraffic - road.a2b.start) / this.maxTraffic);
-                var a2bFinish = (int)(road.a2b.finish.Sum > this.maxTraffic ? 0 : 255 * (this.maxTraffic - road.a2b.finish.Sum) / this.maxTraffic);
-                var b2aStart = (int)(road.b2a.start > this.maxTraffic ? 0 : 255 * (this.maxTraffic - road.b2a.start) / this.maxTraffic);
-                var b2aFinish = (int)(road.b2a.finish.Sum > this.maxTraffic ? 0 : 255 * (this.maxTraffic - road.b2a.finish.Sum) / this.maxTraffic);
+                if (road is null)
+                    continue;
+
+                var colorA = Color.FromRgb((byte)(road.A?.Load / maxTraffic * 255 ?? 0), (byte)((1 - (road.A?.Load / maxTraffic ?? 0)) * 255), 0);
+                var colorB = Color.FromRgb((byte)(road.B.Load / maxTraffic * 255), (byte)((1 - road.B.Load / maxTraffic) * 255), 0);
+
+                if (road.AIsLeft && road.BIsRight || road.AIsTop && road.BIsBottom)  
+                    (colorA, colorB) = (colorB, colorA);
 
                 var lgb = new LinearGradientBrush
                 {
                     StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
                     EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
-                    GradientStops = road.IsExternal
-                        ? new()
-                            {
-                                new(Color.FromRgb((byte)(255 - a2bFinish), (byte)a2bFinish, 0), 0),
-                                new(Color.FromRgb((byte)(255 - b2aFinish), (byte)b2aFinish, 0), 0.5),
-                            }
-                        : new()
-                            {
-                                new(Color.FromRgb((byte)(255 - a2bStart), (byte)a2bStart, 0), 0),
-                                new(Color.FromRgb((byte)(255 - a2bFinish), (byte)a2bFinish, 0), 0.25),
-                                new(Color.FromRgb((byte)(255 - b2aStart), (byte)b2aStart, 0), 0.5),
-                                new(Color.FromRgb((byte)(255 - b2aFinish), (byte)b2aFinish, 0), 0.75),
-                            }
+                    GradientStops = new() { new(colorA, 0), new(colorB, 1) }
                 };
 
                 road.Fill = lgb;
@@ -851,7 +902,7 @@ namespace LegendaryTrafficLights
         /// <param name="message">Сообщение.</param>
         private void MessageBoxShow(string message)
             => MessageBoxManager.GetMessageBoxStandardWindow(
-                new MessageBoxStandardParams
+                new()
                 {
                     ButtonDefinitions = MessageBox.Avalonia.Enums.ButtonEnum.Ok,
                     ContentMessage = "Message: " + message,
@@ -874,12 +925,14 @@ namespace LegendaryTrafficLights
         private void Radiobutton_Checked(object sender, RoutedEventArgs e)
         {
             var source = sender == this.DisableIncomeRadiobutton
-                ? new()
+                ? new(this.currentIncomingTraffic.Select(i =>
+                    new Dictionary<string, object>() { [NumberHeader] = i[NumberHeader], [InterestHeader] = i[InterestHeader] }))
                 : sender == this.UseCertainRadiobutton
                     ? this.currentIncomingTraffic
                     : sender == this.UseRandomRadiobutton
                         ? this.trafficBorders
-                        : new();
+                        : new(this.currentIncomingTraffic.Select(i =>
+                            new Dictionary<string, object>() { [NumberHeader] = i[NumberHeader], [InterestHeader] = i[InterestHeader] }));
 
             this.RedeclareHeaders(source);
         }
@@ -1002,6 +1055,7 @@ namespace LegendaryTrafficLights
         /// <returns></returns>
         /// <exception cref="ArgumentOutOfRangeException">Невозможно привести объект к целочисленному типу.</exception>
         public static int ToInt(this object obj) => obj is int i ? i : int.TryParse(obj.ToString(), out var s) ? s : throw new ArgumentOutOfRangeException(nameof(obj));
+
     }
 
     #endregion

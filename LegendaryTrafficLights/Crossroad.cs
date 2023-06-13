@@ -10,7 +10,11 @@ namespace LegendaryTrafficLights
     /// <summary>
     /// Класс перекрестка.
     /// </summary>
+#pragma warning disable CS0660 // Type defines operator == or operator != but does not override Object.Equals(object o)
+#pragma warning disable CS0661 // Type defines operator == or operator != but does not override Object.GetHashCode()
     public partial class Crossroad : Shape
+#pragma warning restore CS0661 // Type defines operator == or operator != but does not override Object.GetHashCode()
+#pragma warning restore CS0660 // Type defines operator == or operator != but does not override Object.Equals(object o)
     {
         #region Fields
 
@@ -97,7 +101,7 @@ namespace LegendaryTrafficLights
         /// <summary>
         /// Текст для отображения.
         /// </summary>
-        public string Text => $"{MainWindow.VerticalWide(5)}{this}{Environment.NewLine}Crossroad type: {this.PedestrIndex}{Environment.NewLine}{this.Load}";
+        public string Text => $"{MainWindow.VerticalWide(5)}{this}{Environment.NewLine}Crossroad type: {this.PedestrIndex}{Environment.NewLine}{this.Load:0.00}";
 
         #endregion
 
@@ -124,6 +128,10 @@ namespace LegendaryTrafficLights
 
         protected override Geometry? CreateDefiningGeometry()
             => new RectangleGeometry(new Rect(new Point(0, 0), new Point(this.Width, this.Height)));
+
+        public static bool operator ==(Crossroad? c1, Crossroad? c2) => c1?.ID == c2?.ID;
+
+        public static bool operator !=(Crossroad? c1, Crossroad? c2) => c1?.ID != c2?.ID;
 
         #endregion
 
