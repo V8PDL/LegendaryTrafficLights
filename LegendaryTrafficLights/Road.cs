@@ -8,6 +8,9 @@ namespace LegendaryTrafficLights
 {
 #pragma warning disable CS0660 // Type defines operator == or operator != but does not override Object.Equals(object o)
 #pragma warning disable CS0661 // Type defines operator == or operator != but does not override Object.GetHashCode()
+    /// <summary>
+    /// Класс дороги. Наследует <see Shape/> для отображения на холсте.
+    /// </summary>
     public class Road : Shape
 #pragma warning restore CS0661 // Type defines operator == or operator != but does not override Object.GetHashCode()
 #pragma warning restore CS0660 // Type defines operator == or operator != but does not override Object.Equals(object o)
@@ -105,13 +108,44 @@ namespace LegendaryTrafficLights
         /// </summary>
         public Crossroad?[] Crossroads => new[] { this.A, this.B };
 
+        /// <summary>
+        /// Находится в левой части перекрестка Б.
+        /// </summary>
         public bool BIsLeft => this.BPosition == RoadPosition.Left;
+
+        /// <summary>
+        /// Находится в правой части перекрестка Б.
+        /// </summary>
         public bool BIsRight => this.BPosition == RoadPosition.Right;
+
+        /// <summary>
+        /// Находится в верхней части перекрестка Б.
+        /// </summary>
         public bool BIsTop => this.BPosition == RoadPosition.Top;
+
+        /// <summary>
+        /// Находится в нижней части перекрестка Б.
+        /// </summary>
         public bool BIsBottom => this.BPosition == RoadPosition.Bottom;
+
+        /// <summary>
+        /// Находится в левой части перекрестка А.
+        /// </summary>
         public bool AIsLeft => this.APosition == RoadPosition.Left;
+        
+        /// <summary>
+        /// Находится в правой части перекрестка А.
+        /// </summary>
         public bool AIsRight => this.APosition == RoadPosition.Right;
+        
+        /// <summary>
+        /// Находится в верхней части перекрестка А.
+        /// </summary>
         public bool AIsTop => this.APosition == RoadPosition.Top;
+        
+        /// <summary>
+        /// Находится в нижней части перекрестка А  .
+        /// </summary>
         public bool AIsBottom => this.APosition == RoadPosition.Bottom;
 
         /// <summary>
@@ -134,6 +168,7 @@ namespace LegendaryTrafficLights
 
         public Road(int ID, Crossroad? A, Crossroad B, bool IsHorizontal, bool IsA2B = true, bool IsB2A = true)
         {
+            // Пункт Б при любых обстоятельствах должен существовать.
             if (B is null)
                 throw new ArgumentNullException(nameof(this.B));
 
@@ -150,6 +185,7 @@ namespace LegendaryTrafficLights
             this.A2B.finish = new(0, 0, 0);
             this.B2A.finish = new(0, 0, 0);
 
+            // Инициализируем положение дороги для перекрестка Б.
             this.BPosition = true switch
             {
                 true when IsHorizontal && ((this.IsExternal && this.B.IsLeft) || (!this.IsExternal && this.B.IsRight)) => RoadPosition.Left,
@@ -159,6 +195,7 @@ namespace LegendaryTrafficLights
                 _ => throw new NotImplementedException(),
             };
 
+            // Инициализируем положение дороги для перекрестка А.
             this.APosition = this.BPosition switch
             {
                 RoadPosition.Left => RoadPosition.Right,
@@ -170,6 +207,7 @@ namespace LegendaryTrafficLights
 
             if (this.A?.Roads.Any(r => r == this) == false)
                 this.A.Roads.Add(this);
+
             if (!this.B.Roads.Any(r => r == this))
                 this.B.Roads.Add(this);
         }
@@ -180,11 +218,24 @@ namespace LegendaryTrafficLights
 
         #region Base overridings
 
+        /// <summary>
+        /// Переопределение конвертации объекта в строку.
+        /// </summary>
+        /// <returns>Краткая информация о перекрестке.</returns>
         public override string ToString() => $"{this.ID} : FROM {this.A} ({this.IsA2B}) TO {this.B} ({this.IsB2A})";
 
+        /// <summary>
+        /// Получить линию дороги, входящую в переданный перекресток.
+        /// </summary>
+        /// <returns>Дорожная полоса.</returns>
         public RoadLine this[Crossroad crossroad]
             => this.B == crossroad ? this.A2B.finish : this.A == crossroad ? this.B2A.finish : throw new ArgumentOutOfRangeException(nameof(crossroad));
 
+        /// <summary>
+        /// Получить копию объекта.
+        /// </summary>
+        /// <param name="cross">Список перекрестков.</param>
+        /// <returns>Копия дороги.</returns>
         public Road Clone(Crossroad[] cross)
             => new(this.ID, cross.FirstOrDefault(c => c == this.A), cross.First(c => c == this.B), this.IsHorizontal, this.IsA2B, this.IsB2A)
             {
@@ -192,14 +243,30 @@ namespace LegendaryTrafficLights
                 B2A = new(this.B2A.start, new(this.B2A.finish?.left ?? 0, this.B2A.finish?.right ?? 0, this.B2A.finish?.straight ?? 0)),
             };
 
+        /// <summary>
+        /// Определение равенства дорог.
+        /// </summary>
+        /// <param name="r1">Первая дорога.</param>
+        /// <param name="r2">Вторая дорога.</param>
+        /// <returns>Истина, если идентификаторы дорог равны, иначе ложь.</returns>
         public static bool operator ==(Road? r1, Road r2) => r1?.ID == r2?.ID;
 
+        /// <summary>
+        /// Определение неравенства дорог.
+        /// </summary>
+        /// <param name="r1">Первая дорога.</param>
+        /// <param name="r2">Вторая дорога.</param>
+        /// <returns>Истина, если идентификаторы дорог не равны, иначе ложь.</returns>
         public static bool operator !=(Road? r1, Road r2) => r1?.ID != r2?.ID;
 
         #endregion
 
         #region Shape overridings
 
+        /// <summary>
+        /// Реализация класса <see Shape/>.
+        /// </summary>
+        /// <returns>Форма перекрестка.</returns>
         protected override Geometry? CreateDefiningGeometry()
         => new CombinedGeometry(
                 GeometryCombineMode.Union,
@@ -219,7 +286,7 @@ namespace LegendaryTrafficLights
         /// Получить дорогу, на которой будет продолжено движение в определенном направлении.
         /// </summary>
         /// <param name="direction">Направление движения относительно первоначальной дороги.</param>
-        /// <param name="useB">Признак того, что необходимо использвать перекресток Б.</param>
+        /// <param name="useB">Признак того, что необходимо использовать перекресток Б.</param>
         /// <returns>Дорога, по которой будет продолжено движение.</returns>
         /// <exception cref="ArgumentOutOfRangeException">Неверно задан параметр направления.</exception>
         /// <exception cref="NotImplementedException">Не удалось получитьп новое направление.</exception>
@@ -257,7 +324,7 @@ namespace LegendaryTrafficLights
         /// <param name="notCrossroad">Перекесток, который не нужно возвращать.</param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public Crossroad FirstNotCrossroad(Crossroad notCrossroad) => this.Crossroads.FirstOrDefault(c => c != notCrossroad) ?? throw new ArgumentNullException(nameof(notCrossroad));
+        public Crossroad FirstNotCrossroad(Crossroad? notCrossroad) => this.Crossroads.FirstOrDefault(c => c != notCrossroad) ?? throw new ArgumentNullException(nameof(notCrossroad));
 
         /// <summary>
         /// Получить положение относительно перекрестка.

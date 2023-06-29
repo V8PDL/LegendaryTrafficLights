@@ -30,7 +30,7 @@ namespace LegendaryTrafficLights
         }
         
         /// <summary>
-        /// Сумма.
+        /// Сумма по всем направлениям.
         /// </summary>
         public double Sum => this.left + this.right + this.straight;
 

@@ -38,7 +38,7 @@ namespace LegendaryTrafficLights
     public partial class MainWindow : Window
     {
 
-        #region Consts
+        #region Constants
 
         /// <summary>
         /// Число входящих дорог.
@@ -67,11 +67,6 @@ namespace LegendaryTrafficLights
         public const int MaxRoadTime = 2;
 
         /// <summary>
-        /// Ссылка на веб-сервис, предоставляющий информацию о статистике проезжающих машин.
-        /// </summary>
-        //private const string uri = "http://localhost:8008";
-
-        /// <summary>
         /// Заголовок столбца минимальных значений.
         /// </summary>
         private const string MinHeader = "Мин.";
@@ -97,7 +92,7 @@ namespace LegendaryTrafficLights
         private const string InterestHeader = "Интересность";
 
         /// <summary>
-        /// Возможные позиции (?) светофоров по отношению к пешеходам.
+        /// Возможные состояния светофоров.
         /// </summary>
         private readonly PedestriansPosition[] PedestriansPositions = new PedestriansPosition[]
         {
@@ -165,14 +160,9 @@ namespace LegendaryTrafficLights
         private readonly ObservableCollection<Dictionary<string, object>> trafficBorders = new();
 
         /// <summary>
-        /// Входящие машины. Ассрциативный массив. <see langword="object"/>[] - массив из одного элемента - значения. 
+        /// Входящие машины. Ассоциативный массив. <see langword="object"/>[] - массив из одного элемента - значения. 
         /// </summary>
         private readonly ObservableCollection<Dictionary<string, object>> currentIncomingTraffic = new();
-
-        /// <summary>
-        /// Выехавшие на текущей итерации машины.
-        /// </summary>
-        private readonly int[] currentTrafficOut = new int[ExternalRoadsCount];
 
         /// <summary>
         /// Вероятности для выездов с участка дороги
@@ -191,16 +181,6 @@ namespace LegendaryTrafficLights
         /// Предыдущие ситуации.
         /// </summary>
         private readonly Queue<(double a2bCurr, double b2aCurr, double a2bPrev, double b2aPrev)[]> PreviousSituaions = new();
-
-        ///// <summary>
-        ///// Коэфициенты загрузки светофоров для дорог.
-        ///// </summary>
-        //private Dictionary<(int, bool), RoadLine>? LoadingCoefficients;
-
-        ///// <summary>
-        ///// Мафия.
-        ///// </summary>
-        //private double[][]? Mafia;
 
         /// <summary>
         /// Как же хочется светофорочку…						
@@ -238,14 +218,11 @@ namespace LegendaryTrafficLights
 
         #endregion
 
-        //#region Properties
-
-        //private int[]? MafiaResult => this.Mafia?.Select(m => m.ToList().IndexOf(m.Max())).ToArray();
-
-        //#endregion
-
         #region Constructors
 
+        /// <summary>
+        /// Конструктор по умолчанию.
+        /// </summary>
         public MainWindow()
         {
             this.InitializeComponent();
@@ -261,20 +238,24 @@ namespace LegendaryTrafficLights
 
         #endregion
 
-        #region Math
+        #region Main logic
 
         /// <summary>
         /// Инициализация полей стандартными значениями.
         /// </summary>
         private void InitializeFields()
         {
+            // Инициализация перекрестков.
             for (var i = 0; i < CrossroadsCount; i++)
                 this.Crossroads[i] = new(i, (CrossroadPosition)i);
 
+            // Очищаем список предыдущих ситуаций.
             this.PreviousSituaions.Clear();
 
+            // Инициализация значений, связанных с числом внешних дорог.
             for (var i = 0; i < ExternalRoadsCount; i++)
             {
+                // Инициализируем таблицу границ, если еще не инициализировали.
                 if (this.trafficBorders.Count != ExternalRoadsCount)
                 {
                     this.trafficBorders.Add(
@@ -287,6 +268,7 @@ namespace LegendaryTrafficLights
                     });
                 }
 
+                // Инициализируем таблицу константных значений въеххавших автомобилей, если еще не инициализировали.
                 if (this.currentIncomingTraffic.Count != ExternalRoadsCount)
                 {
                     this.currentIncomingTraffic.Add(
@@ -298,11 +280,14 @@ namespace LegendaryTrafficLights
                     });
                 }
 
+                // Добавляем внешнюю дорогу.
                 this.Roads[i] = new(i, null, this.Crossroads[i % CrossroadsCount], i < 4);
+
+                // Добавляем массив вероятностей перехода из внешней дороги.
                 this.baseTrafficProbabilities[i] = new double[TotalRoadsCount];
-                this.currentTrafficOut[i] = 0;
             }
 
+            // Инициализируем массивы вероятностей переходов из внутренних дорог.
             for (var t = 0; t < MaxRoadTime; t++)
             {
                 this.extendedTrafficProbabilities[t] = new double[InternalRoadsCount][];
@@ -310,7 +295,7 @@ namespace LegendaryTrafficLights
                     this.extendedTrafficProbabilities[t][i] = new double[TotalRoadsCount];
             }
 
-            // Работает только для четырех светофоров, чуть лучше, чем хардкод
+            // Инициализируем внутренние дороги.
             for (int i = ExternalRoadsCount; i < TotalRoadsCount; i++)
                 this.Roads[i] = new(i, this.Crossroads[(i - ExternalRoadsCount) % CrossroadsCount], this.Crossroads[(i - ExternalRoadsCount + 1) % CrossroadsCount], i % 2 == 0);
         }
@@ -320,14 +305,16 @@ namespace LegendaryTrafficLights
         /// </summary>
         private void InitializeProbabilities()
         {
+            // Считаем сумму интересностей, чтобы получать нормализованные значения.
             int totalInterest = this.currentIncomingTraffic.Sum(x => x[ValueHeader].ToInt());
 
+            // Устанавливаем значения для вероятностей переходов из внешних дорог во внешние.
+            // Если i == j - переход из дороги в себя - такая вероятность нулевая. Иначе считается по формуле.
             for (var i = 0; i < ExternalRoadsCount; i++)
                 for (var j = 0; j < ExternalRoadsCount; j++)
-                    this.baseTrafficProbabilities[i][j] = i != j
-                        ? 1d * this.Source![j][InterestHeader].ToInt() / (totalInterest - this.Source[i][InterestHeader].ToInt())
-                        : 0;
+                    this.baseTrafficProbabilities[i][j] = i == j ? 0 : 1d * this.Source![j][InterestHeader].ToInt() / (totalInterest - this.Source[i][InterestHeader].ToInt());
 
+            // Считаем вероятности для перехода с внешнх дорог на внутренние.
             for (var i = 0; i < ExternalRoadsCount; i++)
                 for (var j = ExternalRoadsCount; j < TotalRoadsCount; j++)
                     this.AssignProbability(this.baseTrafficProbabilities, i, j, i, j,
@@ -338,8 +325,10 @@ namespace LegendaryTrafficLights
             /// Тогда достаточно будет обернуть в цикл и переработать <see cref="AssignProbability"/>
             for (var i = 0; i < InternalRoadsCount; i++)
             {
+                // Индекс дороги отличается от индекса итератора на число внешних дорог, так как дороги нумеруются по порядку - сначала внешние, потом внутренние.
                 var inRoadIndex = i + ExternalRoadsCount;
 
+                // Для переходов из внутренних дорог во внешние - свои формулы.
                 for (var j = 0; j < ExternalRoadsCount; j++)
                     this.AssignProbability(this.extendedTrafficProbabilities[0], inRoadIndex, j, i, j, (prev, _, _) =>
                     {
@@ -347,6 +336,7 @@ namespace LegendaryTrafficLights
                         return summingRows.Sum(a => a[j]) / summingRows.Sum(a => a[inRoadIndex]);
                     });
 
+                // Для переходов из внутренних дорог во внутренние - другие.
                 for (var j = ExternalRoadsCount; j < TotalRoadsCount; j++)
                     this.AssignProbability(this.extendedTrafficProbabilities[0], inRoadIndex, j, i, j, (prev, cur, _) =>
                     {
@@ -359,44 +349,46 @@ namespace LegendaryTrafficLights
             /// Тогда достаточно будет обернуть в цикл и переработать <see cref="AssignProbability"/>
             for (var i = 0; i < InternalRoadsCount; i++)
             {
+                // Индекс дороги отличается от индекса итератора на число внешних дорог, так как дороги нумеруются по порядку - сначала внешние, потом внутренние.
                 var inRoadIndex = i + ExternalRoadsCount;
 
+                // Для следующего уровня вложенности передвижения машин нужно обрабатывать только вариант внутренние -> внешние.
+                // Внутрнние -> внутренние дает цикл, считаем, что автомобили не будут так ехать.
                 for (var j = 0; j < ExternalRoadsCount; j++)
                     this.AssignProbability(this.extendedTrafficProbabilities[1], inRoadIndex, j, i, j, (prev, _, _) =>
                     {
                         var summingRows = this.baseTrafficProbabilities.Where((_, index) => prev!.ExtIDs.Contains(index));
                         return summingRows.Sum(a => a[j]) / (summingRows.Sum(a => a[i]) + summingRows.Sum(a => a[j]));
                     }, true);
-
-                //for (var j = ExternalRoadsCount; j < TotalRoadsCount; j++)
-                //    this.AssignProbability(this.internalNeighbourTrafficProbabilities[0], inRoadIndex, j, i, j, (prev, cur, _) =>
-                //    {
-                //        var summingRows = this.baseTrafficProbabilities.Where((_, index) => prev.ExtIDs.Contains(index));
-                //        return 0.5 * summingRows.Sum(a => a.Where((_, index) => cur.ExtIDs.Contains(index)).Sum()) / summingRows.Sum(a => a[i]);
-                //    });
             }
         }
 
         /// <summary>
         /// Заполнение списка входящих машин.
         /// </summary>
+        /// <returns>Список машин, въехавших в систему.</returns>
         private async Task<int[]> GetIncomingCars()
         {
             if (this.UseCertainRadiobutton.IsChecked == true)
             {
+                // Получить значения напрямую из заданных в таблице.
                 return this.currentIncomingTraffic.Select(d => d[ValueHeader].ToInt()).ToArray();
             }
             else if (this.FromExternalServeRadiobuttonr.IsChecked == true)
             {
+                // Получить значения с сервере.
                 return await this.GetDataFromServer();
             }
             else if (this.DisableIncomeRadiobutton.IsChecked == true)
             {
+                // Вернуть нули, траффик заблокирован.
                 return Enumerable.Repeat(0, ExternalRoadsCount).ToArray();
             }
             else if (this.UseRandomRadiobutton.IsChecked == true)
             {
                 var rand = new Random();
+                
+                // Вернуть случайные значения из заданного в таблице диапазона.
                 return this.trafficBorders.Select(d => rand.Next(d[MinHeader].ToInt(), d[MaxHeader].ToInt())).ToArray();
             }
             else throw new ArgumentOutOfRangeException(nameof(this.Radiobutton_Checked));
@@ -407,50 +399,62 @@ namespace LegendaryTrafficLights
         /// </summary>
         private async Task<int[]> GetDataFromServer()
         {
+            // Клиент для обращения к веб-серверу.
             using var client = new HttpClient();
+
+            // Блок для обработки ошибок, которые могут возникнуть из-за проблем с сетью или ссылкой.
             try
             {
-                //var result = await client.GetStringAsync(uri);
-                var result = /*lang=json,strict*/ await Task.Run(() => @"{
-    ""start_time"": ""20230608225051"",
-    ""end_time"": ""20230608225121"",
-    ""time_passed"": ""0:00:05.051019"",
-    ""statistics"": [
-        {
-            ""id"": 1,
-            ""count_cars"": 0
-        },
-        {
-            ""id"": 2,
-            ""count_cars"": 0
-        },
-        {
-            ""id"": 3,
-            ""count_cars"": 0
-        },
-        {
-            ""id"": 4,
-            ""count_cars"": 0
-        }
-    ]
-}");
+                // Результат, полученный с сервера.
+                var result = await client.GetStringAsync(this.LinkTextBox.Text);
 
+                // Пример ответа сервера.
+//                var result = /*lang=json,strict*/ await Task.Run(() => @"{
+//    ""start_time"": ""20230608225051"",
+//    ""end_time"": ""20230608225121"",
+//    ""time_passed"": ""0:00:05.051019"",
+//    ""statistics"": [
+//        {
+//            ""id"": 1,
+//            ""count_cars"": 3
+//        },
+//        {
+//            ""id"": 2,
+//            ""count_cars"": 5
+//        },
+//        {
+//            ""id"": 3,
+//            ""count_cars"": 9
+//        },
+//        {
+//            ""id"": 4,
+//            ""count_cars"": 1
+//        }
+//    ]
+//}");
+
+                // Вернулась пустая строка, исключение.
                 if (string.IsNullOrWhiteSpace(result))
                     throw new FormatException(nameof(result));
 
+                // Пытаемся десериализовать строку в объект.
                 var results = JsonSerializer.Deserialize<StatisticReport>(result);
 
+                // Нет времени окончания или объекта - неверный формат строки.
                 if (results?.EndTime is null)
                     throw new ArgumentNullException(nameof(StatisticReport.EndTime));
 
+                // Возвращаем ассоциативный массив значений числа машин по идентификаторам въездов.
                 return Enumerable.Range(0, ExternalRoadsCount).Select(r => results.statistics?.FirstOrDefault(s => s.id == r)?.count_cars ?? 0).ToArray();
 
             }
             catch (Exception ex)
             {
+                // Возникло исключение, оповещаем пользователя.
                 this.MessageBoxShow(ex.Message);
             }
 
+            // Возникло исключение, возвращаем пустой массив.
             return Enumerable.Repeat(0, ExternalRoadsCount).ToArray();
         }
 
@@ -477,56 +481,79 @@ namespace LegendaryTrafficLights
             Func<Crossroad?, Crossroad?, Crossroad?, double> assignFunc,
             bool prevIsMaxDistant = false)
         {
+            // Получаем входящую дорогу.
             var inRoad = this.Roads[inRoadIndex];
+
+            // Получаем исходящую дорогу.
             var outRoad = this.Roads[outRoadIndex];
 
-            var aCrossroad = inRoad.Crossroads.FirstOrDefault(c => c == outRoad.A || c == outRoad.B);
+            // Получаем перекресток между входящим и исходящим.
+            var aCrossroad = inRoad.Crossroads.FirstOrDefault(c => outRoad.Crossroads.Contains(c));
 
+            // Если такого перекрестка нет или дорога одна и та же - вероятность ноль.
             if (aCrossroad is null || inRoad == outRoad)
             {
                 array[i][j] = 0;
                 return;
             }
 
-            var bCrossroad = outRoad.A == aCrossroad ? outRoad.B : outRoad.A;
+            // Находим перекресток после исходящей дороги.
+            var bCrossroad = outRoad.FirstNotCrossroad(aCrossroad);
 
-            var prevCrossroad = inRoad.A == aCrossroad ? inRoad.B : inRoad.A;
+            // Находим перекресток перед входящей доогой.
+            var prevCrossroad = inRoad.FirstNotCrossroad(aCrossroad);
+
+            // Если прокинут флаг получения максимальной дистанции - находим дорогу перед предыдущим перекрестком.
             prevCrossroad = prevIsMaxDistant
-                ? prevCrossroad?.FirstIntNotRoad(inRoad)?.Crossroads.First(c => c != prevCrossroad)
+                ? prevCrossroad?.FirstIntNotRoad(inRoad)?.FirstNotCrossroad(prevCrossroad)
                 : prevCrossroad;
 
+            // Находит следующую дорогу из перекрестка после исходящей дороги.
             var nextRoad = bCrossroad?.IntRoads.First(r => !r.Crossroads.Contains(aCrossroad));
-            var nextCrossroad = nextRoad?.A == bCrossroad ? nextRoad?.B : nextRoad?.A;
 
+            // Находим перекресток после следующей дороги.
+            var nextCrossroad = nextRoad?.FirstNotCrossroad(bCrossroad);
+
+            // Устанавливаем вероятность согласно переданной функции.
             array[i][j] = assignFunc(prevCrossroad, bCrossroad, nextCrossroad);
         }
 
         /// <summary>
-        /// Итерация.
+        /// Осуществление итерации.
         /// </summary>
         private async void Iterate()
         {
-            // New Enemy wave has arrived		
+            // Получение количества прибывших автомобилей.	
             var incomingTraffic = await this.GetIncomingCars();
 
+            // Получение ситуации на дороге, бывшей две итерации назад.
             var lastSituation = this.PreviousSituaions.Count == 2 ? this.PreviousSituaions.Dequeue() : null;
+
+            // Получение ситуацаии на предыдущей итерации.
             this.PreviousSituaions.TryPeek(out var prevSituation);
 
             #region Update situation
 
-            // Copy!!!
+            // Копируем, чтобы не получить проблемы с изменением весов при расчете.
             var crossTmp = this.Crossroads.Select(c => c.Clone()).ToArray();
             var roadsTmp = this.Roads.Select(r => r.Clone(crossTmp)).ToArray();
 
+            // Итерируем для всех дорог.
             foreach (var road in this.Roads)
             {
-                var roadCopy = roadsTmp.First(r => r.ID == road.ID);
+                // Получаем копию текущей дороги.
+                var roadCopy = roadsTmp.First(r => r == road);
 
+                // Обработка изменения весов для внешней дороги.
                 if (roadCopy.IsExternal)
                 {
+                    // Получаем прибывшие на этой итерации автомобили.
                     var traffic = incomingTraffic[road.ID];
 
+                    // Получаем текущее состояние светофоров.
                     var position = this.PedestriansPositions.ElementAtOrDefault(roadCopy.B.PedestrIndex);
+
+                    // Получаем положение, в котором находится дорога.
                     var roadPosition = position?.CoefByDirection(roadCopy.BPosition);
 
                     road.A2B.finish.left += traffic * this.baseTrafficProbabilities[roadCopy.ID][roadCopy.GetRoad(RoadPosition.Left).ID]
@@ -546,27 +573,25 @@ namespace LegendaryTrafficLights
                     continue;
                 }
 
+                // Для внутренних дорог обрабатываем каждую из сторон отдельно.
                 foreach (var cross in road.Crossroads)
                 {
                     if (cross is null)
                         throw new ArgumentNullException(nameof(cross));
 
+                    // Повороты налево, направо, и прямо.
                     var leftRoad = roadCopy.GetRoad(RoadPosition.Left, road.B == cross);
                     var rightRoad = roadCopy.GetRoad(RoadPosition.Right, road.B == cross);
                     var straightRoad = roadCopy.GetRoad(RoadPosition.Top, road.B == cross);
 
+                    // Получаем данные из последнего состояния дороги, чтобы было удобнее работать в дальнейшем.
                     var lastCurr = (road.B == cross ? lastSituation?[road.IntID].a2bCurr : lastSituation?[road.IntID].b2aCurr) ?? 0;
                     var lastPrev = (road.B == cross ? lastSituation?[road.IntID].a2bPrev : lastSituation?[road.IntID].b2aPrev) ?? 0;
 
+                    // Копия дорожного направления для упрощения доступа дальше.
                     var copyLine = roadCopy[cross];
 
-                    var s1 = lastCurr * this.extendedTrafficProbabilities[0][road.IntID][leftRoad.ID];
-                    var s2 = lastPrev * this.extendedTrafficProbabilities[1][road.IntID][leftRoad.ID];
-                    var s3 = (leftRoad.IsExternal
-                                ? (copyLine.left * this.PedestriansPositions.ElementAtOrDefault(cross.PedestrIndex)
-                                    ?.CoefByDirection(road.PosByCross(cross)).GetByDirection(RoadPosition.Left) ?? 0)
-                                : ((leftRoad.A == cross ? prevSituation?[leftRoad.IntID].a2bPrev : prevSituation?[leftRoad.IntID].b2aPrev) ?? 0));
-
+                    // Согласно формулам из математической модели.
                     road[cross].left = copyLine.left
                             + lastCurr * this.extendedTrafficProbabilities[0][road.IntID][leftRoad.ID]
                             + lastPrev * this.extendedTrafficProbabilities[1][road.IntID][leftRoad.ID]
@@ -591,6 +616,7 @@ namespace LegendaryTrafficLights
                                     ?.CoefByDirection(road.PosByCross(cross)).GetByDirection(RoadPosition.Top) ?? 0)
                                 : ((straightRoad.A == cross ? prevSituation?[straightRoad.IntID].a2bPrev : prevSituation?[straightRoad.IntID].b2aPrev) ?? 0));
 
+                    // Устанавливаем также значения для автомобилей, начинающих движение от текущего перекрестка.
                     if (cross == road.B)
                         road.B2A.start = prevSituation?[road.IntID].b2aCurr + prevSituation?[road.IntID].b2aPrev ?? 0;
                     else
@@ -602,6 +628,7 @@ namespace LegendaryTrafficLights
 
             #region Loading coefficients
 
+            // Считаем коэффициенты загруженности.
             var loadingCoefficients = new Dictionary<(int, bool), RoadLine>();
             foreach (var road in this.Roads)
             {
@@ -620,8 +647,9 @@ namespace LegendaryTrafficLights
 
             #endregion
 
-            #region Mafia
+            #region Traffic lights priorities
 
+            // Получаем коэффициенты для светофоров перекрестка.
             var crossPedPositions = new PedestriansPosition[CrossroadsCount][];
             foreach (var crossroad in this.Crossroads)
             {
@@ -665,14 +693,15 @@ namespace LegendaryTrafficLights
                     0);
             }
 
-            var mafia = new double[CrossroadsCount][];
+            // Получаем приоритеты для состояний светофоров.
+            var trafficLightsStates = new double[CrossroadsCount][];
             for (var i = 0; i < CrossroadsCount; i++)
             {
-                mafia[i] = new double[this.PedestriansPositions.Length];
+                trafficLightsStates[i] = new double[this.PedestriansPositions.Length];
                 var crossroad = this.Crossroads[i];
                 for (int j = 0; j < this.PedestriansPositions.Length; j++)
                 {
-                    mafia[i][j] = PedestriansPosition.GetCoeff(this.PedestriansPositions[j].Type)
+                    trafficLightsStates[i][j] = PedestriansPosition.GetCoeff(this.PedestriansPositions[j].Type)
                         * crossroad.Roads
                             .Select(r =>
                             {
@@ -689,43 +718,50 @@ namespace LegendaryTrafficLights
                             })
                             .Sum();
                 }
-                crossroad.PedestrIndex = mafia[i].ToList().LastIndexOf(mafia[i].Max());
+
+                // Записываем в текущий перекресток самое приоритетное состояние светофоров.
+                crossroad.PedestrIndex = trafficLightsStates[i].ToList().LastIndexOf(trafficLightsStates[i].Max());
             }
 
             #endregion
 
-            #region Cars wroom-wroom
+            #region Cars moving
 
+            // Объявляем значения перемещений машин по внутренним дорогам.
             (double a2bCurr, double b2aCurr, double a2bPrev, double b2aPrev)[] cars = new (double, double, double, double)[InternalRoadsCount];
 
+            // Итерируем по внутренним дорогам.
             foreach (var road in this.Roads.Where(r => r.IsInternal))
             {
+                // Положение дороги для перекрестков А и Б
                 var aPosition = this.PedestriansPositions[road.A!.PedestrIndex];
                 var bPosition = this.PedestriansPositions[road.B.PedestrIndex];
 
+                // Получаем выехавшие машины (они всегда едут с максимальным приоритетом).
                 cars[road.IntID].a2bCurr = road.A.ExtRoads.Select(r =>
                     r.A2B.finish.GetByDirection(r.GetDirection(road)) * aPosition.CoefByDirection(r.BPosition).GetByDirection(r.GetDirection(road))).Sum();
                 cars[road.IntID].b2aCurr = road.B.ExtRoads.Select(r =>
                     r.A2B.finish.GetByDirection(r.GetDirection(road)) * bPosition.CoefByDirection(r.BPosition).GetByDirection(r.GetDirection(road))).Sum();
 
+                // Полосы дороги для перекрестков А и Б
                 var a2bRoad = road.A.FirstIntNotRoad(road);
                 var b2aRoad = road.B.FirstIntNotRoad(road);
 
-                var a2bValue = a2bRoad[road.A].GetByDirection(a2bRoad.GetDirection(road));
-                var b2aValue = b2aRoad[road.B].GetByDirection(b2aRoad.GetDirection(road));
-
-                var v1 = aPosition.CoefByDirection(a2bRoad.PosByCross(road.A)).GetByDirection(a2bRoad.GetDirection(road));
-                var v2 = bPosition.CoefByDirection(b2aRoad.PosByCross(road.B)).GetByDirection(b2aRoad.GetDirection(road));
-
-                cars[road.IntID].a2bPrev = a2bValue * aPosition.CoefByDirection(a2bRoad.PosByCross(road.A)).GetByDirection(a2bRoad.GetDirection(road));
-                cars[road.IntID].b2aPrev = b2aValue * bPosition.CoefByDirection(b2aRoad.PosByCross(road.B)).GetByDirection(b2aRoad.GetDirection(road));
-                }
+                cars[road.IntID].a2bPrev = a2bRoad[road.A].GetByDirection(a2bRoad.GetDirection(road))
+                    * aPosition.CoefByDirection(a2bRoad.PosByCross(road.A)).GetByDirection(a2bRoad.GetDirection(road));
+                cars[road.IntID].b2aPrev = b2aRoad[road.B].GetByDirection(b2aRoad.GetDirection(road))
+                    * bPosition.CoefByDirection(b2aRoad.PosByCross(road.B)).GetByDirection(b2aRoad.GetDirection(road));
+            }
 
             #endregion
 
+            // Схраняем коэффициенты для светофоров перекрестка.
             this.CrossroadPedestrianPositions = crossPedPositions;
+
+            // Сохраняем текущую ситуацию.
             this.PreviousSituaions.Enqueue(cars);
 
+            // Закрашиваем дороги в правильные цвета.
             this.RecoloringRoads();
         }
 
@@ -734,12 +770,14 @@ namespace LegendaryTrafficLights
         #region UI
 
         /// <summary>
-        /// Начальное рисование перекрестков
+        /// Начальная отрисовка схемы.
         /// </summary>
         private void PaintIt()
         {
+            // Инициализация графики перекрестков.
             foreach (var crossroad in this.Crossroads)
             {
+                // Создаем элемент текстового блока с фонов в виде перекрестка.
                 var element = new TextBlock
                 {
                     Text = crossroad.Text,
@@ -749,19 +787,27 @@ namespace LegendaryTrafficLights
                     Width = crossroad.Width,
                     Background = new VisualBrush { Visual = crossroad }
                 };
+
+                // Добавляем элемент на холст.
                 this.Canvas.Children.Add(element);
+
+                // Считаем положение элемента относительно левого края и устанавливаем.
                 var left = crossroad.IsRight
                     ? Crossroad.ConstWidth + 2 * Road.BigWidth
                     : Road.BigWidth;
                 Canvas.SetLeft(element, left);
+
+                // Считаем положение элемента относительно верхнего края и устанавливаем.
                 var top = crossroad.IsBottom
                     ? Crossroad.ConstHeight + 2 * Road.BigWidth
                     : Road.BigWidth;
                 Canvas.SetTop(element, top);
             }
 
+            // Инициализация графики дорог.
             foreach (var road in this.Roads)
             {
+                // Создаем элемент текстового блока с фонов в виде дороги.
                 var element = new TextBlock
                 {
                     Tag = road.ToString(),
@@ -772,6 +818,10 @@ namespace LegendaryTrafficLights
                     Background = new VisualBrush { Visual = road }
                 };
 
+                // Добавляем элемент на холст.
+                this.Canvas.Children.Add(element);
+
+                // Считаем положение элемента относительно левого края и устанавливаем.
                 var left = true switch
                 {
                     true when road.IsExternal && road.IsHorizontal && road.B.IsLeft => 0,
@@ -780,6 +830,9 @@ namespace LegendaryTrafficLights
                     true when !road.IsHorizontal && road.B.IsRight => 2 * Road.BigWidth + Crossroad.ConstWidth + (Crossroad.ConstWidth - Road.SmallWidth) / 2,
                     _ => 2 * Road.BigWidth + 2 * Crossroad.ConstWidth,
                 };
+                Canvas.SetLeft(element, left);
+
+                // Считаем положение элемента относительно верхнего края и устанавливаем.
                 var top = true switch
                 {
                     true when road.IsExternal && !road.IsHorizontal && road.B.IsTop => 0,
@@ -788,10 +841,8 @@ namespace LegendaryTrafficLights
                     true when road.IsHorizontal && road.B.IsBottom => 2 * Road.BigWidth + Crossroad.ConstWidth + (Crossroad.ConstWidth - Road.SmallWidth) / 2,
                     _ => 2 * Road.BigWidth + 2 * Crossroad.ConstWidth,
                 };
-
-                this.Canvas.Children.Add(element);
-                Canvas.SetLeft(element, left);
                 Canvas.SetTop(element, top);
+
             }
         }
 
@@ -802,8 +853,10 @@ namespace LegendaryTrafficLights
         /// <param name="headerNames">Названия столбцов.</param>
         private void RedeclareHeaders(ObservableCollection<Dictionary<string, object>> source)
         {
-             this.IncomingCarsDataGrid.Columns.Clear();
-            
+            // Очищаем колонки.
+            this.IncomingCarsDataGrid.Columns.Clear();
+
+            // Реинициализируем колонки.
             foreach (var key in source.First().Keys.ToArray())
             {
                 this.IncomingCarsDataGrid.Columns.Add(new DataGridTextColumn()
@@ -817,6 +870,7 @@ namespace LegendaryTrafficLights
                 });
             }
 
+            // Устанавливаем массив как источник данных таблицы.
             this.IncomingCarsDataGrid.Items = new DataGridCollectionView(source);
             this.Source = source;
         }
@@ -826,11 +880,20 @@ namespace LegendaryTrafficLights
         /// </summary>
         private void Iterations()
         {
+            // Повторяет итерации, пока не изменен флаг выполнения программы.
             while (this.isRunning)
             {
+                // Значение по умолчанию - 2000.
                 var timePerMove = 2000;
+
+                // Получаем значение периода выполнения итераций.
                 Dispatcher.UIThread.Post(() => timePerMove = (int)(this.SpeedSlider.Value * 1000), DispatcherPriority.Background);
+
+                // Выполняем итерацию в UI потоке, чтобы не вызывать блокировки, так как осуществляется доступ к интерфейсу
+                // (перерисовка, получение данных из таблицы, информация о состоянии радиокнопок).
                 Dispatcher.UIThread.Post(() => this.Iterate());
+
+                // Ждем период итерации для формирования задержки между шагами.
                 Thread.Sleep(timePerMove);
             }
         }
@@ -855,33 +918,46 @@ namespace LegendaryTrafficLights
         /// </summary>
         private void RecoloringRoads()
         {
-            var maxTraffic = 100 + this.Crossroads.Max(c => c.Load) * 1.2;
+            // Максимальный траффик на дороге. Прибавляется 10 и умножается на 1.1, чтобы не было всегда красных клеток.
+            var maxTraffic = 10 + this.Crossroads.Max(c => c.Load) * 1.1;
 
+            // Проходимся по всем элементам.
             foreach (var element in this.Canvas.Children)
             {
-                if (element is not TextBlock tb
-                    || tb.Tag is not string tag) // sic!
+                // Проверяем, является ли элемент искомым.
+                if (element is not TextBlock tb || tb.Tag is not string tag)
                     continue;
 
+                // Элемент - дорога.
                 var road = this.Roads.FirstOrDefault(r => r.ToString() == tag);
+
+                // Элемент - перекресток.
                 var crossroad = this.Crossroads.FirstOrDefault(c => c.ToString() == tag);
 
+                // Если это перекресток - работаем с ним.
                 if (crossroad is not null)
                 {
+                    // Переписываем текст.
                     tb.Text = crossroad.Text;
+
+                    // Меняем цвет.
                     crossroad.Fill = new SolidColorBrush(Color.FromRgb((byte)(crossroad.Load / maxTraffic * 255), (byte)((1 - crossroad.Load / maxTraffic) * 255), 0));
                     continue;
                 }
 
+                // Если не дорога, значит, что-то ненужное.
                 if (road is null)
                     continue;
 
+                // Считаем цвета-границы градиента.
                 var colorA = Color.FromRgb((byte)(road.A?.Load / maxTraffic * 255 ?? 0), (byte)((1 - (road.A?.Load / maxTraffic ?? 0)) * 255), 0);
                 var colorB = Color.FromRgb((byte)(road.B.Load / maxTraffic * 255), (byte)((1 - road.B.Load / maxTraffic) * 255), 0);
 
+                // Меняем цвета местами, если дорога идет в другую сторону.
                 if (road.AIsLeft && road.BIsRight || road.AIsTop && road.BIsBottom)  
                     (colorA, colorB) = (colorB, colorA);
 
+                // Создаем градиент.
                 var lgb = new LinearGradientBrush
                 {
                     StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
@@ -889,8 +965,8 @@ namespace LegendaryTrafficLights
                     GradientStops = new() { new(colorA, 0), new(colorB, 1) }
                 };
 
+                // Перекрашиваем дорогу.
                 road.Fill = lgb;
-
                 tb.Background = new VisualBrush { Visual = road };
                 tb.Text = road.Text;
             }
@@ -916,14 +992,25 @@ namespace LegendaryTrafficLights
 
         #region UI Controls handlers
 
+        /// <summary>
+        /// Изменяем надпись при перемещении слайдера скорости.
+        /// </summary>
+        /// <param name="sender">Объект, вызвавший событие.</param>
+        /// <param name="e">Аргументы события.</param>
         private void SpeedSlider_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
         {
             if (e.Property.Name == nameof(this.SpeedSlider.Value) && this.SpeedTextBlock is not null)
                 this.SpeedTextBlock.Text = $"Скорость: {e.NewValue:0.000} секунд на ход";
         }
 
+        /// <summary>
+        /// При изменении выбора радиобаттона меняем таблицу.
+        /// </summary>
+        /// <param name="sender">Объект, вызвавший событие.</param>
+        /// <param name="e">Аргументы события.</param>
         private void Radiobutton_Checked(object sender, RoutedEventArgs e)
         {
+            // Источник исходя из того, какая кнопка отмечена.
             var source = sender == this.DisableIncomeRadiobutton
                 ? new(this.currentIncomingTraffic.Select(i =>
                     new Dictionary<string, object>() { [NumberHeader] = i[NumberHeader], [InterestHeader] = i[InterestHeader] }))
@@ -934,43 +1021,73 @@ namespace LegendaryTrafficLights
                         : new(this.currentIncomingTraffic.Select(i =>
                             new Dictionary<string, object>() { [NumberHeader] = i[NumberHeader], [InterestHeader] = i[InterestHeader] }));
 
+            // Нужно ли отображать текстбокс для ссылки.
+            this.LinkTextBox.IsVisible = sender == this.FromExternalServeRadiobuttonr;
+
+            // Реинициализируем таблицу весов.
             this.RedeclareHeaders(source);
         }
 
+        /// <summary>
+        /// Валидация данных для таблицы весов.
+        /// </summary>
+        /// <param name="sender">Объект, вызвавший событие.</param>
+        /// <param name="e">Аргументы события.</param>
         private void IncomingCarsDataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
+            // Индекс строки.
             var row = e.Row.GetIndex();
+
+            // Индекс колонки.
             var column = e.Column.DisplayIndex;
-            if (row > -1
-                && row < this.IncomingCarsDataGrid.Items.Cast<object>().Count()
-                && e.EditingElement is TextBox tb)
+
+            // Событие не интересует.
+            if (row <= -1
+                || row >= this.IncomingCarsDataGrid.Items.Cast<object>().Count()
+                || e.EditingElement is not TextBox tb)
             {
-                if (!int.TryParse(tb.Text, out var value))
-                {
-                    e.Cancel = true;
-                    MessageBoxShow($"Not a number");
-                }
-                if (value < 0)
-                {
-                    e.Cancel = true;
-                    MessageBoxShow("Positive numbers please");
-                }
-                else if (this.UseRandomRadiobutton.IsChecked == true
-                    && new[] { 2, 3 }.Contains(column)
-                    && (column == 2 ? this.trafficBorders[row][MaxHeader].ToInt() < value : this.trafficBorders[row][MinHeader].ToInt() > value))
-                {
-                    e.Cancel = true;
-                    MessageBoxShow($"Maxval should be greater then minval");
-                }
+                return;
+            }
+
+            // Если введено не число - ошибка.
+            if (!int.TryParse(tb.Text, out var value))
+            {
+                e.Cancel = true;
+                MessageBoxShow($"Not a number");
+            }
+            // Если число отрицательное - ошибка.
+            else if (value < 0)
+            {
+                e.Cancel = true;
+                MessageBoxShow("Positive numbers please");
+                return;
+            }
+            // Если минимальное значение больше максиального - ошибка.
+            else if (this.UseRandomRadiobutton.IsChecked == true
+                && new[] { 2, 3 }.Contains(column)
+                && (column == 2 ? this.trafficBorders[row][MaxHeader].ToInt() < value : this.trafficBorders[row][MinHeader].ToInt() > value))
+            {
+                e.Cancel = true;
+                MessageBoxShow($"Maxval should be greater then minval");
             }
         }
 
+        /// <summary>
+        /// Обработчик клика на кнопку старта.
+        /// </summary>
+        /// <param name="sender">Объект, вызвавший событие.</param>
+        /// <param name="e">Аргументы события.</param>
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             this.isStarted = true;
             this.ContinueButton_Click(sender, e);
         }
 
+        /// <summary>
+        /// Обработчик клика на кнопку остановки.
+        /// </summary>
+        /// <param name="sender">Объект, вызвавший событие.</param>
+        /// <param name="e">Аргументы события.</param>
         private void StopButton_Click(object sender, RoutedEventArgs e)
         {
             this.isStarted = false;
@@ -981,14 +1098,29 @@ namespace LegendaryTrafficLights
             this.PaintIt();
         }
 
+        /// <summary>
+        /// Обработчик клика на кнопку паузы.
+        /// </summary>
+        /// <param name="sender">Объект, вызвавший событие.</param>
+        /// <param name="e">Аргументы события.</param>
         private void PauseButton_Click(object sender, RoutedEventArgs e) => this.ChangeStateIsRunning(false);
 
+        /// <summary>
+        /// Обработчик клика на кнопку продолжения.
+        /// </summary>
+        /// <param name="sender">Объект, вызвавший событие.</param>
+        /// <param name="e">Аргументы события.</param>
         private void ContinueButton_Click(object sender, RoutedEventArgs e)
         {
             this.ChangeStateIsRunning(true);
             new Thread(() => this.Iterations()).Start();
         }
 
+        /// <summary>
+        /// Обработчик клика на кнопку шага вперед.
+        /// </summary>
+        /// <param name="sender">Объект, вызвавший событие.</param>
+        /// <param name="e">Аргументы события.</param>
         private void DebugButton_Click(object sender, RoutedEventArgs e)
         {
             this.isStarted = true;
@@ -1024,16 +1156,29 @@ namespace LegendaryTrafficLights
     /// </summary>
     public class StatisticReport
     {
+        /// <summary>
+        /// Формат времени и даты в сообщении..
+        /// </summary>
+        public const string DateTimeFormat =  "yyyyMMddHHmmss";
+
+        /// <summary>
+        /// Формат прошедшего времени.
+        /// </summary>
+        public const string TimeSpanFormat = @"h\:mm\:ss\.FFFFFF";
+
         public string? start_time { get; set; }
         public string? end_time { get; set; }
         public string? time_passed { get; set; }
 
-        public DateTime? StartTime => DateTime.TryParseExact(this.start_time, "yyyyMMddHHmmss", null, DateTimeStyles.None, out var time) ? time : null;
-        public DateTime? EndTime => DateTime.TryParseExact(this.end_time, "yyyyMMddHHmmss", null, DateTimeStyles.None, out var time) ? time : null;
-        public TimeSpan? TimePassed => TimeSpan.TryParseExact(this.time_passed, @"h\:mm\:ss\.FFFFFF", null, TimeSpanStyles.None, out var time) ? time : null;
+        public DateTime? StartTime => DateTime.TryParseExact(this.start_time, DateTimeFormat, null, DateTimeStyles.None, out var time) ? time : null;
+        public DateTime? EndTime => DateTime.TryParseExact(this.end_time, DateTimeFormat, null, DateTimeStyles.None, out var time) ? time : null;
+        public TimeSpan? TimePassed => TimeSpan.TryParseExact(this.time_passed, TimeSpanFormat, null, TimeSpanStyles.None, out var time) ? time : null;
 
         public Statistic[]? statistics { get; set; }
 
+        /// <summary>
+        /// Класс статистики по конкретной дороге.
+        /// </summary>
         public class Statistic
         {
             public int id { get; set; }

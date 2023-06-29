@@ -8,7 +8,7 @@ using System.Linq;
 namespace LegendaryTrafficLights
 {
     /// <summary>
-    /// Класс перекрестка.
+    /// Класс перекрестка. Наследует <see Shape/> для отображения на холсте.
     /// </summary>
 #pragma warning disable CS0660 // Type defines operator == or operator != but does not override Object.Equals(object o)
 #pragma warning disable CS0661 // Type defines operator == or operator != but does not override Object.GetHashCode()
@@ -107,6 +107,11 @@ namespace LegendaryTrafficLights
 
         #region Constructor
 
+        /// <summary>
+        /// Стандартный конструктор, инициализирующий основные поля объекта.
+        /// </summary>
+        /// <param name="ID">Идентиыикатор, необходим для различия перекрестков.</param>
+        /// <param name="position">Положение перекрестка относительно других перекрестков.</param>
         public Crossroad(int ID, CrossroadPosition position)
         {
             this.ID = ID;
@@ -124,13 +129,33 @@ namespace LegendaryTrafficLights
 
         #region Overridings
 
+        /// <summary>
+        /// Переопределение конвертации объекта в строку.
+        /// </summary>
+        /// <returns>Краткая информация о перекрестке.</returns>
         public override string ToString() => $"{this.ID} : {this.position}";
 
+        /// <summary>
+        /// Реализация класса <see Shape/>.
+        /// </summary>
+        /// <returns>Форма перекрестка.</returns>
         protected override Geometry? CreateDefiningGeometry()
             => new RectangleGeometry(new Rect(new Point(0, 0), new Point(this.Width, this.Height)));
 
+        /// <summary>
+        /// Определение равенства перекрестков.
+        /// </summary>
+        /// <param name="c1">Первый перекресток.</param>
+        /// <param name="c2">Второй перекресток.</param>
+        /// <returns>Истина, если идентификаторы перекрестков равны, иначе ложь.</returns>
         public static bool operator ==(Crossroad? c1, Crossroad? c2) => c1?.ID == c2?.ID;
 
+        /// <summary>
+        /// Определение неравенства перекрестков.
+        /// </summary>
+        /// <param name="c1">Первый перекресток.</param>
+        /// <param name="c2">Второй перекресток.</param>
+        /// <returns>Ложь, если идентификаторы перекрестков равны, иначе истина.</returns>
         public static bool operator !=(Crossroad? c1, Crossroad? c2) => c1?.ID != c2?.ID;
 
         #endregion

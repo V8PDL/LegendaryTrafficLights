@@ -4,6 +4,9 @@ using Avalonia.Markup.Xaml;
 
 namespace LegendaryTrafficLights
 {
+    /// <summary>
+    /// Автоматически сгенерированный код.
+    /// </summary>
     public partial class App : Application
     {
         public override void Initialize()

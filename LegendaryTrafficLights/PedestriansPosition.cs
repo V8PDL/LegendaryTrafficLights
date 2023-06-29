@@ -23,7 +23,7 @@ namespace LegendaryTrafficLights
             };
 
         /// <summary>
-        /// Идентификатор (нужен только для (не)удобства).
+        /// Идентификатор.
         /// </summary>
         public readonly double ID;
 

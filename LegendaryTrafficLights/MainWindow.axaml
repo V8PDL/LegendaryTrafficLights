@@ -5,7 +5,7 @@
         xmlns:zoom="using:Avalonia.Controls.PanAndZoom"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
         x:Class="LegendaryTrafficLights.MainWindow"
-        Title="MainWindow">
+        Title="[JustGINCS] Traffic Lights Modeller">
   <Window.Styles>
     <Style Selector="DataGrid">
       <Setter Property="BorderThickness" Value="2"/>
@@ -21,10 +21,11 @@
     </Style>
   </Window.Styles>
   <Grid>
-    <RadioButton x:Name="UseRandomRadiobutton" Checked="Radiobutton_Checked" Content="Использовать случайные значения" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
-    <RadioButton x:Name="UseCertainRadiobutton" Checked="Radiobutton_Checked" Content="Использовать конкретные значения" HorizontalAlignment="Left" Margin="10,40,0,0" VerticalAlignment="Top"/>
-    <RadioButton x:Name="DisableIncomeRadiobutton" Checked="Radiobutton_Checked" Content="Отключить въезд" HorizontalAlignment="Left" Margin="10,70,0,0" VerticalAlignment="Top"/>
-    <RadioButton x:Name="FromExternalServeRadiobuttonr" Checked="Radiobutton_Checked" Content="Получать данные с сервера" HorizontalAlignment="Left" Margin="10,100,0,0" VerticalAlignment="Top"/>
+    <RadioButton x:Name="UseRandomRadiobutton" Checked="Radiobutton_Checked" Content="Использовать случайные значения" HorizontalAlignment="Left" Margin="20,10,0,0" VerticalAlignment="Top"/>
+    <RadioButton x:Name="UseCertainRadiobutton" Checked="Radiobutton_Checked" Content="Использовать конкретные значения" HorizontalAlignment="Left" Margin="20,40,0,0" VerticalAlignment="Top"/>
+    <RadioButton x:Name="DisableIncomeRadiobutton" Checked="Radiobutton_Checked" Content="Отключить въезд" HorizontalAlignment="Left" Margin="20,70,0,0" VerticalAlignment="Top"/>
+    <RadioButton x:Name="FromExternalServeRadiobuttonr" Checked="Radiobutton_Checked" Content="Получать данные с сервера" HorizontalAlignment="Left" Margin="20,100,0,0" VerticalAlignment="Top"/>
+    <TextBox x:Name="LinkTextBox" IsVisible="False" Watermark="Ссылка на ресурс" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,140,0,0" Width="350"/>
     <DataGrid x:Name="IncomingCarsDataGrid" Margin="20,200,0,0"  VerticalAlignment="Top" HorizontalAlignment="Left"
               AutoGenerateColumns="False" CanUserResizeColumns="True" CanUserReorderColumns="False" CanUserSortColumns="False" CellEditEnding="IncomingCarsDataGrid_CellEditEnding"
               Width="350" MaxWidth="350"/>
